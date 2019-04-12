@@ -10,13 +10,13 @@ from time import sleep
 SLEEPTIME = 0.3
 TWO_PI_STEPS = 255
 
-############################################################################
-##############################  MESSAGES  ##################################
+########################################################################################################################################
+############################################################  MESSAGES  ################################################################
 MSG_HELLO = 100
 MSG_SKIP = 101
 MSG_OK_VERIFICATION = 102
 MSG_ABORT_PROTOCOL = 103
-############################################################################
+########################################################################################################################################
 
 arguments = 4
 n_nodes = -1
@@ -44,7 +44,10 @@ def xorBitByBit(bits):
         result = result^bits[idx]
     return Bits( bin=bin(result) )
 
-def paritySequence( x_i, n ):
+# This function generates a sequence that xored bit-by-bit matches the x_i in input
+# @param x_i: the bit to match with the sequence
+# @param n: length of the sequence
+def paritySequence(x_i, n):
     condition = False
     r_list = BitArray()
     while( not condition ):
@@ -56,7 +59,7 @@ def paritySequence( x_i, n ):
             condition = True
     return r_list
 
-def shiftLeftByOne(input):
+def shiftListLeftByOne(input):
     tmp = [input[-1]]
     tmp.extend(input[:-1])
     return tmp
@@ -72,6 +75,11 @@ def sendMessage(dest, msg):
         except:
             conn.closeClassicalChannel(dest)
 
+# This function broadcasts a message in a network.
+# @param order: the order that must be followed in the broadcasting
+# @param msg: the message that should be broadcasted
+# @param myval: if True appends to the results the msg
+# @return the function returns a list of received values
 def broadcastSingleValue(order, msg, myVal=False):
     received_vals = []
 
@@ -94,6 +102,9 @@ def broadcastSingleValue(order, msg, myVal=False):
     sleep(SLEEPTIME)
     return received_vals
 
+# This function lets a node to broadcast a BitArray list in a network.
+# @param order: the order that must be followed in the broadcasting
+# @param values: this is the list of values that the node wants to broadcast
 def broadcastBitArray(order, values):
     received_vals = BitArray()
 
@@ -116,7 +127,11 @@ def broadcastBitArray(order, values):
     sleep(SLEEPTIME)
     return received_vals
 
-def broadcastLIST(nodes, msg):
+# This function lets a node to broadcast a list in a network.
+# Sends the i-th element to the i-th agent
+# @param nodes: the order that must be followed in the broadcasting
+# @param msg: this is the list of values that the node wants to broadcast
+def broadcastOrderedValues(nodes, msg):
     if msg == None:
         data = list(conn.recvClassical())[0]
     else:
@@ -127,8 +142,11 @@ def broadcastLIST(nodes, msg):
                 data = msg[i]
     return int(data)
 
-############################################################################
-############################  PROTOCOLS  ###################################
+########################################################################################################################################
+########################################################  PROTOCOLS  ###################################################################
+
+# The goal of the Anonymous Entanglement Protocol  is creating a shared EPR 
+# pair between Sender and Receiver. This function returns the EPR generated
 def AnonymousEntanglementProtocol(q):
     buffer = []
     msg = MSG_SKIP
@@ -140,10 +158,15 @@ def AnonymousEntanglementProtocol(q):
 
     msg = MSG_SKIP
     if sender:
-        msg = int(randint(0,1))
-        if msg == 1: 
-            q.Z()
-        printOnConsole('broadcasting random bit: '+ str(msg))
+        if cheater:
+            q.H()
+            msg = q.measure()
+            printOnConsole("Acting like normal agent. Broadcasting measure: " + str(msg))
+        else:
+            msg = int(randint(0,1))
+            if msg == 1: 
+                q.Z()
+            printOnConsole('broadcasting random bit: '+ str(msg))
     buffer.extend(broadcastSingleValue(order, msg, True))
 
     msg = MSG_SKIP
@@ -158,14 +181,19 @@ def AnonymousEntanglementProtocol(q):
         buffer.extend(broadcastSingleValue(order, msg))
 
     printOnConsole('Received values: ' + str(buffer))
+    
     if receiver or sender:
         printOnConsole("DEBUG: q measure: "+ str(q.measure(inplace = True)))
         return q
     return None
 
+# The source generates a state |Ψ⟩ and distributes it to the agents.
+# In this case the source is the last node. It generates GHZ state and sends a qubit to each agent
+# The quantum circuit used is based on:
+# https://dal.objectstorage.open.softlayer.com/v1/AUTH_42263efc45184c7ca4742512588a1942/codes/code-5cabae1dd7559f0053f4e4b6.png
 def GHZStateGenerator():  
     if node_addr == 'node'+str(n_nodes-1):
-        print('\n\n')
+        print('\n')
         printOnConsole('distributing GHZ states...')
         q = qubit(conn)
         
@@ -174,7 +202,6 @@ def GHZStateGenerator():
 
         to_send =[]
         for node in remaining_nodes:
-            
             q_send = qubit(conn)
             q_send.H()
             q_send.cnot(q)
@@ -189,18 +216,12 @@ def GHZStateGenerator():
         q = conn.recvQubit()
     return q
 
-def NotificationProtocol( order ):
+# Notification protocol
+# The Sender notifies the Receiver: agents run the Notification protocol.
+def NotificationProtocol(order, agent_to_notify=None):
     x_list = [ 0 for i in range(n_nodes) ]
-    if sender:
-        sender_position = order.index(node_id)
-        receiver = sender_position
-
-        #A random receiver is extracted by the sender
-        while receiver == sender_position:
-            receiver = randint(0, n_nodes-1)
-        x_list[receiver] = 1
-        print('\n\n')
-        printOnConsole('Notification protocol. Chosen receiver: node'+str(order[receiver]))
+    if agent_to_notify != None:
+        x_list[agent_to_notify] = 1
 
     receiver = False
     for pos, elem in enumerate(order):
@@ -234,6 +255,9 @@ def NotificationProtocol( order ):
             receiver = Bits(bool=receiver)
     return receiver
 
+# Random Agent Protocol.
+# It is an extension of RandomBit protocol. It must be performed log_2(n) times
+# and the result is the ID of the Verifier. Every node knows who is the Verifier
 def RandomAgentProtocol(order):
     verifier = BitArray()
     for _ in range(int(log(n_nodes,2))):
@@ -255,10 +279,15 @@ def RandomAgentProtocol(order):
         verifier.append( Bits(bin=y_i) )
     return int(verifier.uint)
 
+# Random Bit Protocol
+# The sender's goal is choosing a bit according to a distribution.
+# It is based on LogicalOR protocol (and Parity)
 def RandomBitProtocol(x_i, order):
     y_i = 0
     if sender:
+        print('\n')
         printOnConsole("Executing RandomBit protocol")
+    
     for iteration in range(n_nodes):
         if sender:
             printOnConsole("iteration: "+ str(iteration+1))
@@ -275,7 +304,7 @@ def RandomBitProtocol(x_i, order):
             seq = paritySequence(p_i, n_nodes)
             #printOnConsole( "random bits chosen: "+ seq.bin +"(x_i: "+ x_i.bin + ", p_i chosen: "+ p_i.bin +")")
             
-            #Step 2: send jth bit to jth agen
+            #Step 2: send jth bit to jth agent
             r_list = broadcastBitArray(order, seq)
             
             #Steps 3-4: compute z_j and broadcast it to other nodes
@@ -292,12 +321,16 @@ def RandomBitProtocol(x_i, order):
                     y_i = 1
                     break
 
-        order = shiftLeftByOne(order) 
+        order = shiftListLeftByOne(order) 
     return y_i
 
+# Verification Protocol
+# This protocol is a GHZ verification of |Ψ⟩ for the agents.
+# The Verifier would like to verify how close this shared state is to the ideal state 
+# and whether or not it contains GME.
 def VerificationProtocol(order, verifier):
     if verifier == node_id:          
-        print('\n\n')
+        print('\n')
         printOnConsole('I\'m the verifier. Running Verification protocol')
         random_angles = [-1]
 
@@ -305,9 +338,9 @@ def VerificationProtocol(order, verifier):
         while sum(random_angles)%128 != 0:
             random_angles = list([ randint(0, 127) for _ in range(n_nodes) ])
         printOnConsole("sum random_angles: "+ str(sum(random_angles))+" "+str(random_angles))
-        angle = broadcastLIST(order, random_angles)
+        angle = broadcastOrderedValues(order, random_angles)
     else:
-        angle = broadcastLIST(order, None)
+        angle = broadcastOrderedValues(order, None)
 
     qubit.rot_Z(TWO_PI_STEPS - angle)
     qubit.rot_Y(TWO_PI_STEPS - 63)
@@ -340,9 +373,8 @@ def VerificationProtocol(order, verifier):
     
     return broadcastSingleValue(order, msg, True)[0]
 
-############################################################################
-############################################################################
-#############################  MAIN  #######################################
+########################################################################################################################################
+##########################################################  MAIN  ######################################################################
 if __name__ == '__main__':
     if len(argv) < arguments :
         print('missing arguments')
@@ -353,52 +385,61 @@ if __name__ == '__main__':
     node_id = int(node_addr[-1])
     sender = bool(int(argv[3]))
 
+    if len(argv) > arguments:
+        fetuso = True
+        printOnConsole('I\'m the fetuso')
+
     node_list = listOfNodes(n_nodes)
-
-    ################# Connection SETUP #################
-    printOnConsole('checking connection...')
-    msg = MSG_SKIP
-    S = 10
-
+    
     order = [ i for i in range(n_nodes)] #[ i for i in range(n_nodes-1,-1,-1) ]#
     if sender:
         cheater = False
         printOnConsole('Ordering: '+str(order))
 
+    printOnConsole('checking connection...')
+    msg = MSG_SKIP
+    S = 10
+
     with CQCConnection(node_addr) as conn:
         if sender:
             printOnConsole( 'sending hello message to others...')
             msg = MSG_HELLO
+
         messages = broadcastSingleValue(order, msg)
         if len(messages) > 0:
             printOnConsole('Received '+ str(messages[0]))
-        
-        ################# The Sender notifies the Receiver #################
-        #The Sender notifies the Receiver: agents run the Notification protocol.
-        receiver = NotificationProtocol(order)
+
+
+        # A random receiver is extracted by the sender
+        receiver = None
+        if sender:
+            receiver = order.index(node_id)
+            while receiver == order.index(node_id):
+                receiver = randint(0, n_nodes-1)
+            print('\n')
+            printOnConsole('Notification protocol. Chosen receiver: node'+str(order[receiver]))
+        receiver = NotificationProtocol(order, receiver)
 
         #printOnConsole("DEBUG: resulting y_i: " + receiver.bin)
-        if int(receiver.bin) == 1:
+        if receiver:
             printOnConsole('I\'m the receiver')
         
-        ################# GHZ state generation #############################
-        #The source generates a state |Ψ⟩ and distributes it to the agents.
-        #In this case, the source is always the last node
+        # GHZ state generation
+        # TODO: Inserire la generazione degli stati da una sorgente non affidabile (?)
         qubit = GHZStateGenerator()
 
         if node_addr == 'node'+str(order[-1]):
-            printOnConsole('GHZ state created')
+            printOnConsole('GHZ state created!')
         #printOnConsole("DEBUG: GHZ " + str(q.measure(inplace=True)))
-        #sleep(SLEEPTIME)
 
-        ################# The Sender anonymously chooses Verification or Anonymous Entanglement #################
-        #Step a) The agents perform the RandomBit protocol, with the Sender choosing her input according to the 
+        # The Sender anonymously chooses Verification or Anonymous Entanglement
+        # The agents perform the RandomBit protocol, with the Sender choosing her input according to the 
         # following probability distribution: she flips S fair classical coins, and if all coins are heads, s
         # he inputs 0, else she inputs 1. Let the outcome be x.
         # 0 → head, 1 → cross
         coins = []
         if sender:
-            print('\n\n')
+            print('\n')
             printOnConsole('flipping coins')
             for i in range(S):
                 coins.append(randint(0,1))
@@ -424,31 +465,23 @@ if __name__ == '__main__':
             printOnConsole("y_i: "+ str(y_i))
         sleep(SLEEPTIME)
 
+        if sender:
+            print('\n\n')
         if y_i == 0:
-            ################# Anonymous Entanglement #################
-            #The goal of this phase is creating a shared EPR pair between Sender and Receiver
-            if sender:            
-                print('\n\n')
+            # Anonymous Entanglement
             printOnConsole('Running Anonymous Entanglement')   
             qubut = AnonymousEntanglementProtocol(qubit)
         else:
-            ################# Random agent protocol ##################
-            #It is an extension of RandomBit protocol. It is performed log_2(n) times
-            #and the result is the ID of the verifier
-            if sender:            
-                print('\n\n')
+            # Random agent protocol
             printOnConsole('Running RandomAgent protocol')
 
             verifier = RandomAgentProtocol(order)
             printOnConsole('Node' + str(verifier) +' is the verifier')
 
-            ################# Verification protocol #################
-            #GHZ verification of |Ψ⟩ for k honest agents.
+            # Verification protocol
             verification_result = VerificationProtocol(order, verifier)
-            print(verification_result)
 
             if verification_result == MSG_OK_VERIFICATION:
                 printOnConsole('Verification ok')
             elif verification_result == MSG_ABORT_PROTOCOL:
                 printOnConsole('Someone tried to cheat, aborting protocol')
-                exit()

@@ -4,22 +4,27 @@ from sys import argv
 import subprocess
 import os
 
-if __name__ == '__main__':
-    n_nodes = int(argv[1])
-    tmp = [ 'node'+str(i) for i in range(0, n_nodes) ]
-    print("nodes: ",tmp)
+N_NODES = 4
 
-    network = Network(nodes=tmp, topology='complete')
+if __name__ == '__main__':
+    if len(argv) > 1:
+        N_NODES = int(argv[1])
+
+    node_list = [ 'node'+str(i) for i in range(0, N_NODES) ]
+    print("Creating Network with nodes: ", node_list, "\n")
+
+    network = Network(nodes=node_list, topology='complete')
     network.start()
 
-    for i in range(0, n_nodes):
-        params = "python3 node.py "+str(n_nodes)+" "+str(i)+" "
+    for i in range(0, N_NODES):
+        # invocation params: python3 node.py <number of nodes in network> <node_name> <sender> <adversary> &
+        params = "python3 node.py "+str(N_NODES)+" "+str(i)+" "
         
-        if ( i == n_nodes-1):
+        if ( i == N_NODES-2):
             params += "1 "
         else:
             params += "0 "
-        #if i != n_nodes-1:
+
         params += "&"
 
         subprocess.call(params, shell=True)
