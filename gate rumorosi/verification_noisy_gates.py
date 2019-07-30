@@ -34,10 +34,10 @@ logging.getLogger('qiskit.mapper._mapping').setLevel(logging.DEBUG)
 shots = 500
 rotation_step = (2*pi)/256
 given_fidelity = 0.9
-nodes = 2
+nodes = 3
 
 timestamp = datetime.now().strftime('%Y%m%d%H%M')
-DEBUG = timestamp+'_odd_prova'
+DEBUG = timestamp+'_odd'+str(nodes)
 
 def xorBitByBit(bits):
     if( len(bits) == 0):
@@ -48,145 +48,184 @@ def xorBitByBit(bits):
         result = result^bits[idx]
     return int(Bits(bin=bin(result)).bin)
 
-if len(argv) > 1:
-    given_fidelity = float(argv[2])
-if len(argv) > 2:
-    nodes = int(argv[1])
 
-
-np.set_printoptions( suppress = True)
-
-try:
+def main():
     # circuit creates a ghz without measuring qubits.
     # this is the circuit that we will use in order to calculate fidelity
     # the idenity gate is used in order to add the depolarizing channel noise to the state
-    qr = QuantumRegister(2)
-    cr = ClassicalRegister(2)
+    qr = QuantumRegister(nodes)
+    cr = ClassicalRegister(nodes)
     circuit = QuantumCircuit(qr, cr, name='ghz_circuit')  
 
     # Creates the first subcircuit that represents the gate H-I applied to
     # two qubits
-    sub_q_hi = QuantumRegister(2)
+    sub_q_hi = QuantumRegister(nodes)
     HI_circuit = QuantumCircuit(sub_q_hi, name='hi')
-    HI_circuit.h(sub_q_hi[0])
-    HI_circuit.iden(sub_q_hi[1])
+    for i in range(nodes-1):
+        HI_circuit.h(sub_q_hi[i])
+    HI_circuit.iden(sub_q_hi[-1])
 
     # Convert to a gate and stick it into an arbitrary place in the bigger circuit
     HI_instr = HI_circuit.to_instruction()
-    circuit.append(HI_instr, [qr[0], qr[1]])
+    circuit.append(HI_instr, [qr[i] for i in range(nodes)])
 
-    circuit.cx(qr[0],qr[1])
+    for i in range(nodes-1):
+        circuit.cx(qr[i], qr[-1])
 
     # Creates the second subcircuit that represents the gate H-H applied to
     # two qubits
-    sub_q_hh = QuantumRegister(2)
+    sub_q_hh = QuantumRegister(nodes)
     HH_circuit = QuantumCircuit(sub_q_hh, name='hh')
-    HH_circuit.h(sub_q_hh[0])
-    HH_circuit.h(sub_q_hh[1])
+    for i in range(nodes):
+        HH_circuit.h(sub_q_hh[i])
 
     HH_instr = HH_circuit.to_instruction()
-    circuit.append(HH_instr, [qr[0], qr[1]])
+    circuit.append(HH_instr, [qr[i] for i in range(nodes)])
 
-    # Calculates the state vector of the ideal state
     statevector_simulator = Aer.get_backend('statevector_simulator')
     result = execute(circuit, statevector_simulator, shots = shots).result()
     state = result.get_statevector(circuit)
+    #print('ghz statevector\n',state)
 
-    # In order to calculate the probability in the depolarizing channel, we have to 
+    # in order to calculate the probability in the depolarizing channel, we have to 
     # calculate first the noisy rho density matrix
     psi = np.array(state)
     psi_density_matrix = psi.reshape((1,-1))
     psi_density_matrix = np.dot(psi_density_matrix.transpose(), psi_density_matrix)
     #print('psi density matrix \n', psi_density_matrix)
 
-    p = 0.05
+    p = 0.00
 
-    ket_0 = np.matrix([[1,0]], dtype = np.complex64).T
-    psi_0 = np.kron(ket_0,ket_0)
-    rho_0 = np.outer(psi_0.T,psi_0)
+    ket_0 = np.matrix([[1,0]], dtype = np.int16).T
+    psi_0 = ket_0
+    for _ in range(nodes-1):
+        psi_0 = np.kron(psi_0, ket_0)
+    rho_0 = np.outer(psi_0.T, psi_0)
+    
+    ket_1 = np.matrix([[0,1]], dtype = np.complex64).T
+    psi_1 = ket_1
+    for _ in range(nodes-1):
+        psi_1 = np.kron(psi_1, ket_1)
     
     H = (1/(2**(1/2)))*np.matrix(([1, 1], [1, -1]), dtype = np.complex64)
     I = np.identity(2)
+    X = np.matrix(([0, 1], [1, 0]), dtype = np.complex64)
     I_noise = np.identity(2**nodes)/(2**nodes)
 
-    HkI = np.kron(H, I)
+    HkI = H.copy()
+    for _ in range(nodes-2):
+        HkI = np.kron(HkI, H)
+    HkI = np.kron(HkI, I)
+    
     rho_1 = np.dot(HkI, rho_0)
     rho_1 = np.dot(rho_1, HkI.getH())
-    rho_3n = psi_density_matrix.copy()
+    rho = psi_density_matrix.copy()
 
+    dm_0 = np.outer(ket_0, ket_0.T)
+    dm_1 = np.outer(ket_1, ket_1.T)
+
+    # creates a list of cnots. The target is always the last one
+    cnot_list = []
+    for idx in range(nodes-1):
+        f_part = dm_0.copy()
+        s_part = dm_1.copy()
+        for _ in range(idx):
+            f_part = np.kron(np.identity(2), f_part)
+            s_part = np.kron(np.identity(2), s_part)
+        for _ in range(idx, nodes-1):
+            f_part = np.kron(f_part, np.identity(2))
+        for _ in range(idx, nodes-2):
+            s_part = np.kron(s_part, np.identity(2))
+        s_part = np.kron(s_part, X)
+        cnot_list.append(f_part+s_part)
+    
     actual_fidelity = 1
     while actual_fidelity > given_fidelity:
         resulting_p = p
         fidelity = actual_fidelity
-        resulting_density_matrix = rho_3n
+        resulting_density_matrix = rho
 
         p += 0.00001
-        # apply the noise (general function)
-        rho_1n = p*I_noise + (1-p)*rho_1
-        cnot = np.matrix([[1,0,0,0], [0,1,0,0],[0,0,0,1],[0,0,1,0]], dtype = np.complex64)
+        # apply the noise (general function): first stage
+        rho = p*I_noise + (1-p)*rho_1
+
+        for cnot in cnot_list:
+            rho = np.dot(cnot, rho)
+            rho = np.dot(rho, cnot.getH())
+            
+            # for every cnot, apply noise
+            rho = p*I_noise + (1-p)*rho
+
+        HkH = H.copy()
+        for _ in range(nodes-1):
+            HkH = np.kron(HkH, H)
+
+        rho = np.dot(HkH, rho)
+        rho = np.dot(rho, HkH.getH())
+
+        rho = p*I_noise + (1-p)*rho
+        actual_fidelity = state_fidelity(rho, psi_density_matrix)
         
-        rho_2 = np.dot(cnot, rho_1n)
-        rho_2 = np.dot(rho_2, cnot.getH())
-
-        # apply the noise (general function)
-        rho_2n = p*I_noise + (1-p)*rho_2
-
-        HcH = np.kron(H,H)
-        rho_3 = np.dot(HcH, rho_2n)
-        rho_3 = np.dot(rho_3, HcH.getH())
-
-        # apply the noise (general function)
-        rho_3n = p*I_noise + (1-p)*rho_3
-        actual_fidelity = state_fidelity(rho_3n, psi_density_matrix)
-
-
-    noise_model = NoiseModel()    
-    error = depolarizing_error(p**(1/nodes), 2)
-    noise_model.add_all_qubit_quantum_error(error, ['hi','hh','cx'])
-    print(noise_model)
-
-    result = execute(circuit, 
-                    backend = Aer.get_backend('qasm_simulator'), 
-                    shots = shots,
-                    basis_gates = noise_model.basis_gates,
-                    noise_model = noise_model).result()
-
+    #rho_density_matrix = (actual_p*np.identity(len(state)))/nodes + (1 - actual_p)*psi_density_matrix
+    #fidelity = state_fidelity(rho_density_matrix, psi_density_matrix)
     print('depolarizing probability:', resulting_p)
     print('resulting fidelity:', fidelity)
     print('resulting rho density matrix:\n', resulting_density_matrix)
-    print('trace:', np.trace(resulting_density_matrix), 'error pb for each gate', p**(1/nodes))
+    print('additional info. Trace:', np.trace(resulting_density_matrix))
 
+
+    #################### code that models the noise ####################################
+    # Once we have the probability that gives us a specific fidelity in the depolarizing
+    # channel, we simulate the circuit.
+    # Creates and adds depolarizing error to specific qubit gates
+    noise_model = NoiseModel()    
+    error = depolarizing_error(resulting_p, 2)
+    noise_model.add_all_qubit_quantum_error(error, ['hi','hh','cx'])
+    print(noise_model)
+
+    
     ITERATIONS = 500
     print('Running verification protocol...')
-    angles_dict = {'00':0, '01':0, '10':0, '11':0}
+
+    # creates a dictionary that counts the results
+    angles_dict = {}
+    for b in range(2**nodes):
+        print(bin(b)[2:].zfill(nodes))
+        angles_dict[bin(b)[2:].zfill(nodes)] = 0
+
     for iteration in range(ITERATIONS):
-        qr = QuantumRegister(2)
-        cr = ClassicalRegister(2)
+        qr = QuantumRegister(nodes)
+        cr = ClassicalRegister(nodes)
+        circuit = QuantumCircuit(qr, cr, name='ghz_circuit')  
+
+        qr = QuantumRegister(nodes)
+        cr = ClassicalRegister(nodes)
         circuit = QuantumCircuit(qr, cr, name='ghz_circuit')  
 
         # Creates the first subcircuit that represents the gate H-I applied to
         # two qubits
-        sub_q_hi = QuantumRegister(2)
+        sub_q_hi = QuantumRegister(nodes)
         HI_circuit = QuantumCircuit(sub_q_hi, name='hi')
-        HI_circuit.h(sub_q_hi[0])
-        HI_circuit.iden(sub_q_hi[1])
+        for i in range(nodes-1):
+            HI_circuit.h(sub_q_hi[i])
+        HI_circuit.iden(sub_q_hi[-1])
 
         # Convert to a gate and stick it into an arbitrary place in the bigger circuit
         HI_instr = HI_circuit.to_instruction()
-        circuit.append(HI_instr, [qr[0], qr[1]])
+        circuit.append(HI_instr, [qr[i] for i in range(nodes)])
 
-        circuit.cx(qr[0],qr[1])
+        for i in range(nodes-1):
+            circuit.cx(qr[i], qr[-1])
 
         # Creates the second subcircuit that represents the gate H-H applied to
         # two qubits
-        sub_q_hh = QuantumRegister(2)
+        sub_q_hh = QuantumRegister(nodes)
         HH_circuit = QuantumCircuit(sub_q_hh, name='hh')
-        HH_circuit.h(sub_q_hh[0])
-        HH_circuit.h(sub_q_hh[1])
+        for i in range(nodes):
+            HH_circuit.h(sub_q_hh[i])
 
         HH_instr = HH_circuit.to_instruction()
-        circuit.append(HH_instr, [qr[0], qr[1]])
-
+        circuit.append(HH_instr, [qr[i] for i in range(nodes)])
 
         random_angles = [-1]
         while sum(random_angles) != 128:
@@ -224,5 +263,10 @@ try:
 
     plot_histogram(angles_dict, title='Verification protocol results').savefig('res/'+DEBUG+'.png')
 
-except QiskitError as ex:
-    print('There was an error in the circuit!. Error = {}'.format(ex))
+if __name__ == "__main__":
+    np.set_printoptions(suppress = True)
+    if len(argv) > 2:
+        given_fidelity = float(argv[2])
+    if len(argv) > 1:
+        nodes = int(argv[1])
+    main()
