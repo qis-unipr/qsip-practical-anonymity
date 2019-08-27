@@ -12,7 +12,7 @@ import sys, getopt
 from comm_module import getConfigPort
 import os
 
-DEBUG = "test_simulation" # "simulation" # 
+DEBUG = "new_" #"alfa_beta_simulation"#"test_simulation" # "simulation" # 
 
 
 # Generates a JSON file with default params in order to run simulation
@@ -46,12 +46,11 @@ if __name__ == '__main__':
     fidelity = 1
     generate = False
     honest_verifier = False
-    unentangled_adv = True
     n_adversaries = 0
     nodes_to_create = 3
     verbose = 2
 
-    opts, args = getopt.getopt(sys.argv[1:], 'n:f:d:a:h:v',['nodes=','fidelity=','delta=','adv=','help=','honest-verifier=','verbose=','unentangled-adv='])
+    opts, args = getopt.getopt(sys.argv[1:], 'n:f:d:a:h:v',['nodes=','fidelity=','delta=','adv=','help=','honest-verifier=','verbose='])
     for opt, arg in opts:
         if opt in ('-n', '--nodes'):
             nodes_to_create = int(arg)
@@ -66,9 +65,6 @@ if __name__ == '__main__':
         elif opt in ('--honest-verifier'): #the verifier is always honest
             assert arg in ['0','1'], "wrong honest verifier parameter"
             honest_verifier = bool(int(arg))
-        elif opt in ('--unentangled-adv'): #the adversaries qubits are unentangled in the GHZ state generation
-            assert arg in ['0','1'], "wrong unentangled adversaries qubits parameter"
-            unentangled_adv = bool(int(arg))
         elif opt in ('-h', '--help'):
             print('Supported commands:'+
                     '\n {:3s}  {:12s} -> sets the number of adversaries'.format('-a','--adv')+
@@ -81,7 +77,6 @@ if __name__ == '__main__':
             exit()
         else:
             assert False, "unknwown option"
-    
     
     if not os.path.exists('conf.json'):
         print('Missing conf.json file. Generating a new one')
@@ -112,7 +107,6 @@ if __name__ == '__main__':
     network = Network(nodes=node_list, topology='complete')
     network.start()
 
-
     # the sender won't be the source of ghz states
     sender = randint(0, n_nodes-2)
     adversary = []
@@ -129,7 +123,6 @@ if __name__ == '__main__':
             selected = choice(possible_adversary)
             adversary.append(selected)
             possible_adversary.pop(possible_adversary.index(selected))
-
 
     # This json avoids that the verifier is an adversary. 
     # It is useful when we want to simulate a specific situations
@@ -149,7 +142,6 @@ if __name__ == '__main__':
     S = conf['params']['S']
     order = conf['ordering']
 
-
     # Pretty-print simulation parameters on file
     timestamp = str(datetime.datetime.fromtimestamp(time()).strftime('%Y-%m-%d %H:%M:%S'))
     simulation_parameters = ('simulation parameters:'+
@@ -163,13 +155,11 @@ if __name__ == '__main__':
             '\n\tordering: '+str(order))
 
     if honest_verifier:
-        simulation_parameters += ('\n\thonest verifier: '+str(honest_verifier))    
-    if len(adversary) > 0:
-        simulation_parameters += ('\n\tunentangled qubits for adversaries: '+str(unentangled_adv))
+        simulation_parameters += ('\n\thonest verifier: '+str(honest_verifier))
     simulation_parameters += '\n'
     print(simulation_parameters)
 
-    with open("./results/"+DEBUG+"_"+str(n_nodes)+".csv","a") as output:
+    with open("./results/"+DEBUG+"simulation_"+str(n_nodes)+".csv","a") as output:
         print(simulation_parameters,file=output)
 
     # spawns processes for each agent
@@ -180,7 +170,7 @@ if __name__ == '__main__':
             params += "1 "
         else:
             if len(adversary) > 0 and i in adversary:
-                to_append = "2 " + str("-".join(map(str, adversary))) + " " + str(int(unentangled_adv)) +" "
+                to_append = "2 " + str("-".join(map(str, adversary))) + " "
                 params += to_append
             else:
                 params += "0 "    

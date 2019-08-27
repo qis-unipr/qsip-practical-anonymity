@@ -2,7 +2,7 @@
 from ast import literal_eval
 from bitstring import BitArray, Bits
 import json
-from math import log, sqrt, ceil, floor
+from math import log, ceil, acos, pi
 import numpy as np
 from random import randint, uniform, shuffle, choice
 from time import sleep, time
@@ -12,35 +12,35 @@ from cqc.pythonLib import CQCConnection, qubit
 
 # OS modules
 from sys import argv
-from tempfile import mkstemp
-from multiprocessing import Value,Lock
 import os
 
 # Other modules
 from comm_module import CommunicationManager
-
+from createNetwork import DEBUG
+from ast import literal_eval
 
 ############################################################################
 ################################  CONSTANTS  ###############################
-N_ITERATIONS = 200
+N_ITERATIONS = 300 #128*10
 PI_VALUE = 128
 TOLERANCE = 0.1          # this value is needed in order to exit in the GHZStateGenerator's while loop  
 TWO_PI_STEPS = 256
 SLEEPTIME = 0.05
 
-DEBUG = "test_"
-lvl_verb = 2
+lvl_verb = 1
 
 ############################################################################
 ######################  COMMUNICATION FUNCTIONS  ###########################
 # MESSAGES
-MSG_HELLO = 100
 MSG_SKIP = 101
 MSG_OK_VERIFICATION = 102
 MSG_ABORT_PROTOCOL = 103
 MSG_REPEAT_PROTOCOL = 104
-MSG_ACK = 150
 
+# 0: classic
+# 1: ket 0^n distribuito
+strategy = 0
+meas = None
 
 # This function broadcasts a message in a network.
 # @param order: the order that must be followed in the broadcasting
@@ -67,7 +67,7 @@ def broadcastSingleValue(cm, node_id, order, msg, myVal=False, skipcount=0):
         if data != MSG_SKIP:
             received_vals.append(data)
 
-    sleep(SLEEPTIME)
+    sleep(SLEEPTIME*len(order))
     return received_vals
 
 # This function lets a node to broadcast a BitArray list in a network.
@@ -127,11 +127,10 @@ def sendMessage(conn, dest, msg):
 # The angle is calculated in steps relying on the following formula: ((number_of_steps/2)*ε)/n_nodes
 def ApplyNoise(q_list, qubits, rots):   
     for idx, q in enumerate(qubits):
-        if rots[idx] == 0:                              # rotation on y axis
+        if rots[idx] == 0:                     # rotation on y axis
             q_list[q].rot_Y(1)
-        else:                                           # rotation on x axis
+        else:                                  # rotation on x axis
             q_list[q].rot_X(1)
-
     return q_list
 
 # The goal of the Anonymous Entanglement Protocol is the creation a shared EPR 
@@ -171,61 +170,69 @@ def AnonymousEntanglementProtocol(conn, cm, node_id, q, order, sender = False, r
 # In this case the source is the last  It generates GHZ state and sends a qubit to each agent
 # The quantum circuit used is based on:
 # https://dal.objectstorage.open.softlayer.com/v1/AUTH_42263efc45184c7ca4742512588a1942/codes/code-5cabae1dd7559f0053f4e4b6.png
-# TODO: sistemare avversari.
-def GHZStateGenerator(cm, conn, node_id, order, fidelity=1, adversary = False, adversaries = None, unentangle_qubits = True):
+def GHZStateGenerator(cm, conn, node_id, order, fidelity=1, adversary = False, adversaries = None):
+    global meas
     n_nodes = len(order)
 
     if node_id == n_nodes-1:
+        printOnConsole(node_id, 'distributing GHZ states...', 1)
         q = qubit(conn)
         
         remaining_nodes = order[:]
         remaining_nodes.remove(node_id)
+        qubit_list = []
         
-        # retrieves rotation informations in order to simulate "noise" for the qubits
-        if fidelity < 1:
-            with open("output"+str(n_nodes)+"_{0:2.0f}.txt".format(fidelity*100), "r") as rotations_file:
-                lines = rotations_file.readlines()
+        if strategy == 0:
+            # applies noise for the qubits
+            if fidelity < 1:
+                with open("output"+str(n_nodes)+"_"+str(int(fidelity*100))+".txt", "r") as rotations_file:
+                    lines = rotations_file.readlines()
 
-            line = randint(0, len(lines)-1) 
-            rotations = lines[line].split(';')[1:][0]
-            rotations = literal_eval(rotations)
-            # print('extracted line', line, 'rotations', str(rotations))
-            
-            qubits, rotations = [ list(tup) for tup in zip(*rotations)]
-
-        qubit_list =[]
-        for node in remaining_nodes:
-            q_send = qubit(conn)
-
-            # generates unentangled qubits for the adversaries
-            if (not adversary) or (not (node in adversaries) or not unentangle_qubits):
+                line = randint(0, len(lines)-1)
+                rotations = lines[line].split(';')[1:][0]
+                rotations = literal_eval(rotations)
+                qubits, rotations = [ list(tup) for tup in zip(*rotations)]
+                
+            for _ in range(len(remaining_nodes)):
+                q_send = qubit(conn)
                 q_send.H()
                 q_send.cnot(q)
-            
-            qubit_list.append(q_send)
+                qubit_list.append(q_send)
 
-        for idx, node in enumerate(remaining_nodes):
-            if (not adversary) or not (node in adversaries) or not unentangle_qubits:
-                qubit_list[idx].H()
-
-        # if the source is an adversary, he must have an unentangled qubit too
-        if adversary and unentangle_qubits:
-            q.release()
-            q = qubit(conn)
+            for qbit in qubit_list:
+                qbit.H()
+            q.H()
+            qubit_list.append(q)
         else:
             q.H()
+            for node in remaining_nodes:
+                q_send = qubit(conn)
+                q_send.H()
+                qubit_list.append(q_send)
+            qubit_list.append(q)
 
-        qubit_list.append(q)
         if fidelity < 1:
             qubit_list = ApplyNoise(qubit_list, qubits, rotations)
+            
+        q = qubit_list[-1]
+
+        '''if adversary and strategy == 0:
+            q.H()
+            meas = q.measure(inplace=True)'''
 
         for node, q_to_send in enumerate(qubit_list[:-1]):
             conn.sendQubit(q_to_send, 'node'+str(node))
-
-        q = qubit_list[-1]
+        
+        '''#TODO: provare a vedere se funziona qua ma non dovrebbero esserci problemi
+        if adversary and strategy == 0:
+            q.H()
+            meas = q.measure(inplace=True)'''
     else:
         q = conn.recvQubit()
 
+    if adversary and strategy == 0:
+        q.H()
+        meas = q.measure(inplace=True)
     return q
 
 # Notification protocol
@@ -293,7 +300,6 @@ def RandomAgentProtocol(cm, S, order, node_id, sender = False):
         for _ in range(int(ceil(log(n_nodes, 2)))):
             if sender:
                 x_i = Bits(bin=str(bin(round(np.random.uniform(0,1)))))
-                printOnConsole(node_id, 'random bit: '+x_i.bin, 1)
             else:
                 x_i = Bits(bin='0')
                 
@@ -342,9 +348,9 @@ def RandomBitProtocol(cm, S, order, node_id, x_i, sender = False):
         print('\n')
         printOnConsole(node_id, "Executing RandomBit protocol")
     
-    for iteration in range(n_nodes):
+    for actual_iteration in range(n_nodes):
         if sender:
-            printOnConsole(node_id, "iteration: "+ str(iteration+1))
+            printOnConsole(node_id, "iteration: "+ str(actual_iteration+1))
 
         y_list = BitArray()
         for _ in range(S):
@@ -401,25 +407,33 @@ def VerificationProtocol(conn, cm, q, order, node_id, verifier = None, adversary
         angle = broadcastOrderedValues(conn, node_id, order, random_angles)
     else:
         angle = broadcastOrderedValues(conn, node_id, order)
-    
 
-    if (angle == 0):
-        angle = TWO_PI_STEPS
-    q.rot_Z(TWO_PI_STEPS - angle) 
+    if (angle != 0):
+        q.rot_Z(TWO_PI_STEPS - angle)
     q.rot_Y(TWO_PI_STEPS - 64)     
-
-
     measure = q.measure()
+    
     if verifier == node_id:
         results = [measure]
+        user = [node_id]
         while len(results) < n_nodes:
-            results.append(int(cm.recvMessage()[0]))
+            received_message = cm.recvMessage()[0]
+            received_message = received_message.split(',')
+            results.append(int(received_message[0]))
+            user.append(int(received_message[1]))
         
-        printOnConsole(node_id, "-----------------> results: " +str(results), 0)
+        tuprint = sorted(list(zip(user,results)), key=lambda tup:tup[0])
+        _, tuprint = [ list(tup) for tup in zip(*tuprint)]
+        printOnConsole(node_id, "results: " +str(results), 0)
     else:
-        cm.sendMessageToNode(measure, 'node'+str(verifier))
-        sleep(SLEEPTIME*n_nodes)
+        if adversary: #and node_id == n_nodes-1: #<- TODO: modifica
+            if angle >= int(PI_VALUE/2):
+                measure = (meas+1)%2
+            else:
+                measure = meas
 
+        cm.sendMessageToNodeWithId(measure, 'node'+str(verifier))
+        sleep(SLEEPTIME*n_nodes)
 
     msg = MSG_SKIP
     if verifier == node_id:
@@ -428,29 +442,34 @@ def VerificationProtocol(conn, cm, q, order, node_id, verifier = None, adversary
         y_j = xorBitByBit(BitArray(results))
         printOnConsole(node_id, "multiple of pi (1 odd, 0 even): "+ str(odd_pi_mul) +" y_j calculated: " + str(int(y_j.bin)))
 
+        if int( y_j.bin ) == odd_pi_mul:
+            printOnConsole(node_id, 'No one is cheating.')
+            msg = MSG_OK_VERIFICATION
+        else:
+            printOnConsole(node_id, 'Someone is cheating.')
+            msg = MSG_ABORT_PROTOCOL
+            
         to_append = ""
         if adversary:
             printOnConsole(node_id, 'The adversary is the verifier, cheating on response')
-            to_append += ",cheater_as_verifier"
+            to_append += ",cheater_as_verifier,("+str(msg)+")"
             msg = MSG_OK_VERIFICATION
-        else:
-            if int( y_j.bin ) == odd_pi_mul:
-                printOnConsole(node_id, 'No one is cheating.')
-                msg = MSG_OK_VERIFICATION
-            else:
-                printOnConsole(node_id, 'Someone is cheating.')
-                msg = MSG_ABORT_PROTOCOL
-        writeout("simulation", n_nodes ,'verification protocol,'+ str(N_ITERATIONS)+"/"+str(iteration+1)+","+str(msg)+to_append)
+            
+        writeout("simulation", n_nodes ,'verification protocol,'+ 
+                    str(N_ITERATIONS)+"/"+str(iteration+1)+","+str(msg)+to_append+
+                    ",measures: "+str(tuprint)+
+                    ",angles: "+str(random_angles)+" "+ str(sum(random_angles)))
     else:
         sleep(SLEEPTIME*n_nodes)
-    return broadcastSingleValue(cm, node_id, order, msg, True)[0]
+
+    return measure, angle, broadcastSingleValue(cm, node_id, order, msg, True)[0]
 
 
 ############################################################################
 ##########################  UTILITY FUNCTIONS  #############################
 def intToBinaryString(n_nodes, number):
     result = Bits(bin=str(bin(number))).bin
-    if len(result) < int(ceil(log(n_nodes,2))): #n_nodes.bit_length():
+    if len(result) < int(ceil(log(n_nodes, 2))): #n_nodes.bit_length():
         prefix = ''.join(['0' for _ in range(int(log(n_nodes,2))-len(result))]) #range(n_nodes.bit_length()-len(result))])
         result = prefix+result
     return result
@@ -508,7 +527,7 @@ def main():
         print('conf.json file file not found!')
         exit()
     
-    if not os.path.exists("output"+str(n_nodes)+"_{0:2.0f}.txt".format(fidelity*100)):
+    if not os.path.exists("output"+str(n_nodes)+"_{0:2.0f}.txt".format(fidelity*100)) and fidelity < 1:
         print('Missing rotations file')
         exit()
 
@@ -516,15 +535,13 @@ def main():
     sender = False
     adversary = False
     adversaries = None
-    unentangle_qubits = True
 
     if argv[2] == '1':
         sender = True
     elif argv[2] == '2':
         adversary = True
         adversaries = list(map(int,list(argv[3].split('-'))))   # all the dishonest agents know the other adversaries
-        unentangle_qubits = bool(int(argv[4]))
-        printOnConsole(node_id, 'allies: '+ str(adversaries)+" unentangle_qubits: "+ str(unentangle_qubits), 2)
+        printOnConsole(node_id, 'allies: '+ str(adversaries), 2)
     printOnConsole(node_id, 'conf.json loaded!', 2)
 
 
@@ -534,7 +551,7 @@ def main():
 
 
     with CQCConnection('node'+str(node_id)) as conn:
-        for iteration in range(N_ITERATIONS):
+        for iteration in range(182,N_ITERATIONS):
             
             # The Sender notifies the Receiver
             receiver = NotificationProtocol(communication_manager, S, order, node_id, sender)
@@ -542,8 +559,8 @@ def main():
                 printOnConsole(node_id, 'I\'m the receiver')
             
             # GHZ state generation
-            q = GHZStateGenerator(communication_manager, conn, node_id, order, fidelity, adversary, adversaries, unentangle_qubits)
-        
+            q = GHZStateGenerator(communication_manager, conn, node_id, order, fidelity, adversary, adversaries)
+
             if node_id == n_nodes-1:
                 printOnConsole(node_id, 'GHZ distributed\n')
                 
@@ -587,8 +604,8 @@ def main():
             else:
                 printOnConsole(node_id, "y_i: "+ str(y_i), 2)
             
-            # in order to simulate the protocol abortation, I use this broadcast, so every process
-            # can skip an iteration if randombit fails. In reality the protocol should continue
+            # in order to simulate the protocol abortation, we use this broadcast. Every process
+            # skips an iteration if randombit fails. In reality the protocol should continue
             # and the sender pretends to be a normal agent 
             protocol_ok = broadcastSingleValue(communication_manager, node_id, order, msg)
             if protocol_ok == MSG_ABORT_PROTOCOL or msg == MSG_ABORT_PROTOCOL:
@@ -599,15 +616,14 @@ def main():
                 continue
             sleep(SLEEPTIME)
 
-            y_i = 1
             if y_i == 0:
                 printOnConsole(node_id, 'Running Anonymous Entanglement')
                 AnonymousEntanglementProtocol(conn, communication_manager, node_id, q, order, sender, receiver)
             else:
                 printOnConsole(node_id, 'Running RandomAgent protocol')
 
-                # The following cycle allows to select always an honest verifier if the variable is set.
-                # This is useful when we want to simulate a specific situation of the protocol
+                # The following cycle allows to select always an honest verifier if the variable is set.    #
+                # This is useful when we want to simulate a specific situation of the protocol              #
                 repeat = True
                 next_iteration = False
                 while repeat:
@@ -627,8 +643,7 @@ def main():
                             protocol_ok = MSG_OK_VERIFICATION
                         broadcastSingleValue(communication_manager, node_id, order, protocol_ok)
                     else:
-                        protocol_ok = broadcastSingleValue(communication_manager, node_id, order, msg)
-
+                        protocol_ok = broadcastSingleValue(communication_manager, node_id, order, msg)[0]
                     repeat = False
                     if protocol_ok == MSG_ABORT_PROTOCOL:
                         try:
@@ -638,13 +653,17 @@ def main():
                         next_iteration = True
                     elif protocol_ok == MSG_REPEAT_PROTOCOL:
                         repeat = True
-                
+
+                    sleep(SLEEPTIME*n_nodes)
                 if next_iteration:
                     continue
                     
+                ############################################################################################
                 printOnConsole(node_id, 'node' + str(verifier) +' is the verifier')
                 VerificationProtocol(conn, communication_manager, q, order, node_id, verifier, adversary)
-        
+                #if adversary: 
+                #    with open('prova_new.txt','a') as f:
+                #        print('node_id:'+str(node_id)+',measure:'+str(meas)+', angle:'+str(angle)+', protocol result:',res, file=f)
         if sender:
             writeout("simulation", n_nodes ,'\n')
 

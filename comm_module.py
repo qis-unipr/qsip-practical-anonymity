@@ -67,9 +67,14 @@ class CommunicationManager():
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         sock.sendto(bytes(str(msg), 'utf-8'), ('localhost', getConfigPort(id)+1000 ))
 
+    def sendMessageToNodeWithId(self, msg, id):
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        sock.sendto(bytes(str(msg)+','+str(self._id)[-1], 'utf-8'), ('localhost', getConfigPort(id)+1000 ))
+        
     def recvMessage(self):
         msg, sender = self._listening_sock.recvfrom(2000)
         return msg.decode('utf-8'), sender
+
 
     def bufferRead(self):
         A = self._messages[:]
