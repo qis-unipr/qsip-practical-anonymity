@@ -21,7 +21,7 @@ from ast import literal_eval
 
 ############################################################################
 ################################  CONSTANTS  ###############################
-N_ITERATIONS = 300 #128*10
+N_ITERATIONS = 300
 PI_VALUE = 128
 TOLERANCE = 0.1          # this value is needed in order to exit in the GHZStateGenerator's while loop  
 TWO_PI_STEPS = 256
@@ -67,7 +67,7 @@ def broadcastSingleValue(cm, node_id, order, msg, myVal=False, skipcount=0):
         if data != MSG_SKIP:
             received_vals.append(data)
 
-    sleep(SLEEPTIME*len(order))
+    sleep(SLEEPTIME)
     return received_vals
 
 # This function lets a node to broadcast a BitArray list in a network.
@@ -182,17 +182,17 @@ def GHZStateGenerator(cm, conn, node_id, order, fidelity=1, adversary = False, a
         remaining_nodes.remove(node_id)
         qubit_list = []
         
-        if strategy == 0:
-            # applies noise for the qubits
-            if fidelity < 1:
-                with open("output"+str(n_nodes)+"_"+str(int(fidelity*100))+".txt", "r") as rotations_file:
-                    lines = rotations_file.readlines()
+        # applies noise for the qubits
+        if fidelity < 1:
+            with open("output"+str(n_nodes)+"_"+str(int(fidelity*100))+".txt", "r") as rotations_file:
+                lines = rotations_file.readlines()
 
-                line = randint(0, len(lines)-1)
-                rotations = lines[line].split(';')[1:][0]
-                rotations = literal_eval(rotations)
-                qubits, rotations = [ list(tup) for tup in zip(*rotations)]
-                
+            line = randint(0, len(lines)-1)
+            rotations = lines[line].split(';')[1:][0]
+            rotations = literal_eval(rotations)
+            qubits, rotations = [ list(tup) for tup in zip(*rotations)]
+            
+        if strategy == 0:
             for _ in range(len(remaining_nodes)):
                 q_send = qubit(conn)
                 q_send.H()
@@ -202,37 +202,28 @@ def GHZStateGenerator(cm, conn, node_id, order, fidelity=1, adversary = False, a
             for qbit in qubit_list:
                 qbit.H()
             q.H()
-            qubit_list.append(q)
         else:
             q.H()
             for node in remaining_nodes:
                 q_send = qubit(conn)
                 q_send.H()
                 qubit_list.append(q_send)
-            qubit_list.append(q)
+        qubit_list.append(q)
 
         if fidelity < 1:
             qubit_list = ApplyNoise(qubit_list, qubits, rotations)
             
         q = qubit_list[-1]
 
-        '''if adversary and strategy == 0:
-            q.H()
-            meas = q.measure(inplace=True)'''
-
         for node, q_to_send in enumerate(qubit_list[:-1]):
             conn.sendQubit(q_to_send, 'node'+str(node))
-        
-        '''#TODO: provare a vedere se funziona qua ma non dovrebbero esserci problemi
-        if adversary and strategy == 0:
-            q.H()
-            meas = q.measure(inplace=True)'''
     else:
         q = conn.recvQubit()
 
     if adversary and strategy == 0:
         q.H()
         meas = q.measure(inplace=True)
+
     return q
 
 # Notification protocol
@@ -308,16 +299,16 @@ def RandomAgentProtocol(cm, S, order, node_id, sender = False):
             if sender:
                 to_print = ""
                 if y_i != x_i.bin:
-                    to_print += "Someone cheated in RandomAgentProtocol"
+                    to_print += "Someone cheated in RandomBitProtocol"
                     cheater = True
                 else:
-                    to_print += "No one cheated in RandomAgentProtocol"
+                    to_print += "No one cheated in RandomBitProtocol"
                 to_print = to_print +" y_i: "+ y_i+" x_i: "+x_i.bin
                 printOnConsole(node_id, to_print, 1)
 
             verifier.append(Bits(bin=y_i))
             if verifier.uint in network_nodes and sender:
-                printOnConsole(node_id, '~~~~~~~~~~~~~~~~~~~~~~~> Extracted a node that is not in network', 1)
+                printOnConsole(node_id, 'Extracted a node that is not in the network, repeating protocol', 1)
 
     # forces the verifier to be an honest one
     # only for simulation purpose
@@ -328,7 +319,7 @@ def RandomAgentProtocol(cm, S, order, node_id, sender = False):
                 adv = list(map(int,adv))
         
             if int(verifier.uint) in adv:
-                print('trovato avversario')
+                printOnConsole(node_id, 'Adversary found, repeating protocol', 1)
                 return -2
         except:
             pass
@@ -426,12 +417,13 @@ def VerificationProtocol(conn, cm, q, order, node_id, verifier = None, adversary
         _, tuprint = [ list(tup) for tup in zip(*tuprint)]
         printOnConsole(node_id, "results: " +str(results), 0)
     else:
-        if adversary: #and node_id == n_nodes-1: #<- TODO: modifica
-            if angle >= int(PI_VALUE/2):
-                measure = (meas+1)%2
-            else:
+        if adversary:
+            if strategy == 0:
                 measure = meas
-
+                
+            if angle >= int(PI_VALUE/2):
+                measure = (measure+1)%2
+  
         cm.sendMessageToNodeWithId(measure, 'node'+str(verifier))
         sleep(SLEEPTIME*n_nodes)
 
@@ -450,15 +442,16 @@ def VerificationProtocol(conn, cm, q, order, node_id, verifier = None, adversary
             msg = MSG_ABORT_PROTOCOL
             
         to_append = ""
+
         if adversary:
             printOnConsole(node_id, 'The adversary is the verifier, cheating on response')
-            to_append += ",cheater_as_verifier,("+str(msg)+")"
+            to_append += ",cheater_as_verifier_("+str(msg)+")"
             msg = MSG_OK_VERIFICATION
             
-        writeout("simulation", n_nodes ,'verification protocol,'+ 
-                    str(N_ITERATIONS)+"/"+str(iteration+1)+","+str(msg)+to_append+
+        writeout("_simulation", n_nodes ,'verification protocol,'+ 
+                    str(N_ITERATIONS)+"/"+str(iteration+1)+","+str(msg)+
                     ",measures: "+str(tuprint)+
-                    ",angles: "+str(random_angles)+" "+ str(sum(random_angles)))
+                    ",angles: "+str(random_angles)+" "+ str(sum(random_angles))+to_append)
     else:
         sleep(SLEEPTIME*n_nodes)
 
@@ -546,13 +539,12 @@ def main():
 
 
     communication_manager = CommunicationManager('node'+str(node_id))
-    printOnConsole(node_id, 'communication manager created!', 2)
+    printOnConsole(node_id, 'Communication manager created!', 2)
     sleep(SLEEPTIME)
 
 
     with CQCConnection('node'+str(node_id)) as conn:
-        for iteration in range(182,N_ITERATIONS):
-            
+        for iteration in range(N_ITERATIONS):
             # The Sender notifies the Receiver
             receiver = NotificationProtocol(communication_manager, S, order, node_id, sender)
             if int(receiver.bin) == 1:
@@ -592,7 +584,7 @@ def main():
                 to_print = ""
                 if y_i != int(x_i.bin):
                     to_print += "Someone cheated in RandomBitProtocol"
-                    writeout("simulation", n_nodes, str(N_ITERATIONS)+"/"+str(iteration+1)+str(MSG_ABORT_PROTOCOL)+", RandomBitProtocol")
+                    writeout("_simulation", n_nodes, str(N_ITERATIONS)+"/"+str(iteration+1)+str(MSG_ABORT_PROTOCOL)+", RandomBitProtocol")
                     msg = MSG_ABORT_PROTOCOL
                 else:
                     to_print += "No one cheated in RandomBitProtocol"
@@ -622,8 +614,8 @@ def main():
             else:
                 printOnConsole(node_id, 'Running RandomAgent protocol')
 
-                # The following cycle allows to select always an honest verifier if the variable is set.    #
-                # This is useful when we want to simulate a specific situation of the protocol              #
+                # The following cycle allows to select always an honest verifier if the variable is set. 
+                # This is useful when we want to simulate a specific situation of the protocol   
                 repeat = True
                 next_iteration = False
                 while repeat:
@@ -633,7 +625,7 @@ def main():
                     if sender:
                         if verifier == -1:
                             printOnConsole(node_id, 'Someone cheated in RandomAgentProtocol')
-                            writeout("simulation", node_id,  str(N_ITERATIONS)+"/"+str(iteration+1)+str(msg)+", RandomAgentProtocol")
+                            writeout("_simulation", node_id,  str(N_ITERATIONS)+"/"+str(iteration+1)+str(msg)+", RandomAgentProtocol")
                             protocol_ok = MSG_ABORT_PROTOCOL
                         elif verifier == -2:
                             printOnConsole(node_id, "Extracting another verifier")
@@ -649,23 +641,19 @@ def main():
                         try:
                             q.release()
                         except:
-                            printOnConsole(node_id, 'qubit already released')
+                            printOnConsole(node_id, 'Qubit already released')
                         next_iteration = True
                     elif protocol_ok == MSG_REPEAT_PROTOCOL:
                         repeat = True
-
-                    sleep(SLEEPTIME*n_nodes)
+                    sleep(SLEEPTIME)
                 if next_iteration:
                     continue
-                    
+
                 ############################################################################################
                 printOnConsole(node_id, 'node' + str(verifier) +' is the verifier')
                 VerificationProtocol(conn, communication_manager, q, order, node_id, verifier, adversary)
-                #if adversary: 
-                #    with open('prova_new.txt','a') as f:
-                #        print('node_id:'+str(node_id)+',measure:'+str(meas)+', angle:'+str(angle)+', protocol result:',res, file=f)
         if sender:
-            writeout("simulation", n_nodes ,'\n')
+            writeout("_simulation", n_nodes ,'\n')
 
 if __name__ == "__main__":
     main()

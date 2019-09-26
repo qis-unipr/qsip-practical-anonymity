@@ -12,7 +12,7 @@ import sys, getopt
 from comm_module import getConfigPort
 import os
 
-DEBUG = "new_" #"alfa_beta_simulation"#"test_simulation" # "simulation" # 
+DEBUG = "prova"
 
 
 # Generates a JSON file with default params in order to run simulation
@@ -159,7 +159,7 @@ if __name__ == '__main__':
     simulation_parameters += '\n'
     print(simulation_parameters)
 
-    with open("./results/"+DEBUG+"simulation_"+str(n_nodes)+".csv","a") as output:
+    with open("./results/"+DEBUG+"_simulation_"+str(n_nodes)+".csv","a") as output:
         print(simulation_parameters,file=output)
 
     # spawns processes for each agent

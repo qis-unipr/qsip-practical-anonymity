@@ -19,6 +19,7 @@ from random import randint
 from sys import argv
 from datetime import datetime
 from bitstring import BitArray, Bits
+import time
 
 import qiskit.tools.qcvv.tomography as tomo
 
@@ -31,11 +32,12 @@ logging.getLogger('qiskit._compiler').setLevel(logging.INFO)
 logging.getLogger('qiskit.mapper._mapping').setLevel(logging.DEBUG)
 
 # constants
-shots = 500
-rotation_step = (2*pi)/256
+even = None
+folder_name = 'results'
 given_fidelity = 1
 nodes = 3
-even = None
+rotation_step = (2*pi)/256
+ITERATIONS = 128*5
 
 timestamp = datetime.now().strftime('%Y%m%d%H%M')
 
@@ -83,7 +85,7 @@ def main():
     circuit.append(HH_instr, [qr[i] for i in range(nodes)])
 
     statevector_simulator = Aer.get_backend('statevector_simulator')
-    result = execute(circuit, statevector_simulator, shots = shots).result()
+    result = execute(circuit, statevector_simulator, shots = 1000).result()
     state = result.get_statevector(circuit)
     #print('ghz statevector\n',state)
 
@@ -171,7 +173,7 @@ def main():
     print('depolarizing probability:', resulting_p)
     print('Additional infos:',
         '\n- trace:', np.trace(resulting_density_matrix), 
-        '\n-resulting fidelity:', fidelity)
+        '\n- fidelity:', fidelity)
 
     #################### code that models the noise ####################################
     # Once we have the probability that gives us a specific fidelity in the depolarizing
@@ -183,9 +185,6 @@ def main():
     noise_model.add_all_qubit_quantum_error(error, ['hi','hh'])
     noise_model.add_all_qubit_quantum_error(error2, 'cx')
     print(noise_model)
-
-    
-    ITERATIONS = 500
     print('Running verification protocol...')
 
     # creates a dictionary that counts the results
@@ -232,13 +231,19 @@ def main():
         random_angles = [-1]
         if even:
             DEBUG += 'even'
-            while sum(random_angles) != 0 and sum(random_angles) != 256: 
-                random_angles = list([randint(0, 127) for _ in range(nodes) ])
+            while (sum(random_angles) / 128) % 2 != 0: 
+                random_angles = list([randint(0, 127) for _ in range(nodes-1)])
+                if iteration % 128 == 1 or iteration % 128 == 2:
+                    random_angles.append(3)
+                else:
+                    random_angles.append(iteration%128)
+                
         else:
             DEBUG += 'odd'
-            while sum(random_angles) % 128 != 0:
-               random_angles = list([randint(0, 127) for _ in range(nodes) ])
-
+            while (sum(random_angles) / 128) % 2 != 1:
+                random_angles = list([randint(0, 127) for _ in range(nodes-1)])
+                random_angles.append(iteration%128)
+                
         DEBUG += '_noisy_gates_'+str(nodes)
 
         random_angles_steps = random_angles[:]
@@ -258,7 +263,7 @@ def main():
         
         counts_device = result.get_counts(circuit)
 
-        with open('res/'+DEBUG+'.txt','a') as f:
+        with open(folder_name+'/'+DEBUG+'.txt','a') as f:
             string = ''
             for key in counts_device:
                 angles_dict[key] += 1
@@ -267,7 +272,10 @@ def main():
                     string += ',ok'
             print('{0:4.0f}'.format(fidelity*1000)+','+str(ITERATIONS)+'/'+str(iteration+1)+','+string, file = f)
 
-    plot_histogram(angles_dict, title='Verification protocol results').savefig('res/'+DEBUG+'.png')
+    with open(folder_name+'/'+DEBUG+'.txt','a') as f:
+        print("--- %s seconds ---" % (time.time() - start_time), file = f)
+
+    plot_histogram(angles_dict, title='Verification protocol results').savefig(folder_name+'/'+DEBUG+'.png')
 
 if __name__ == "__main__":
     np.set_printoptions(suppress = True,linewidth=np.inf)
@@ -285,4 +293,8 @@ if __name__ == "__main__":
     if len(argv) > 3:
         given_fidelity = float(argv[3])
 
+    if not os.path.exists('./'+folder_name):
+        print('Error! folder, ', folder_name, 'not found.')
+        exit()
+    start_time = time.time()
     main()
