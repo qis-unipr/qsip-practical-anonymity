@@ -12,7 +12,7 @@ SimulaQron: 3.0.4
 
 [1] A. Unnikrishnan, I. J. MacFarlane, R. Yi, E. Diamanti, D. Markham, I. Kerenidis: "Anonymity for practical quantum networks". Physical Review Letters, volume 122, 24, 2018
 
-### Simulation of the anonimity protocol
+## Simulation of the anonimity protocol
 First of all, in order to simulate the anonimity network, we need to create a file where we specify the small rotations to apply to qibits in order to reach a certain fidelity. In fact SimulaQron does not allow to simulate complex noisy states.
 So we have to run the following command:
 
@@ -38,7 +38,7 @@ If we want, for example, simulate a network with 3 agents where they share a ghz
 python create_network.py -a 1 -n 3 -f 0.9
 ```
 
-### Simulation of the *Verification protocol* with noisy gates
+## Simulation of the *Verification protocol* with noisy gates
 For the simulation of the noisy gates, we used three schemes. 
 The first two schemes simulate noisy *I* gates at the beginning or at the end of the circuit that generates the ghz state. We can simulate this case running the following command:
 
