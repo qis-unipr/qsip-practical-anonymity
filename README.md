@@ -2,7 +2,7 @@ qsip-practical-anonimity
 =============
 Implementation of the set of protocols proposed by Unnikrishnan et al. ([arXiv:1811.04729](https://arxiv.org/abs/1811.04729)) to guarantee the anonymity of two parties, the sender and the receiver, when they wish to transmit a message through the network.
 
-#Introduction
+# Introduction
 We implemented and simulated the anonymity protocol proposed by A. Unnikrushnan *et al.* <sup>1</sup>. We also simulated a scenario in which the gates are noisy in order to evaluate the effects of the *depolarining channel* on the gates.
 
 To run the protocols, you need SimulaQron and Qiskit. In this project, we used the following versions:
@@ -12,7 +12,7 @@ SimulaQron: 3.0.4
 
 [1] A. Unnikrishnan, I. J. MacFarlane, R. Yi, E. Diamanti, D. Markham, I. Kerenidis: "Anonymity for practical quantum networks". Physical Review Letters, volume 122, 24, 2018
 
-##Simulation of the anonimity protocol
+## Simulation of the anonimity protocol
 First of all, in order to simulate the anonimity network, we need to create a file where we specify the small rotations to apply to qibits in order to reach a certain fidelity. In fact SimulaQron does not allow to simulate complex noisy states.
 So we have to run the following command:
 
@@ -38,4 +38,4 @@ If we want, for example, simulate a network with 3 agents where they share a ghz
 python create_network.py -a 1 -n 3 -f 0.9
 ```
 
-##Simulation of the *Verification protocol* with noisy gates
+## Simulation of the *Verification protocol* with noisy gates
