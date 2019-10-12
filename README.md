@@ -2,7 +2,7 @@ qsip-practical-anonimity
 =============
 Implementation of the set of protocols proposed by Unnikrishnan et al. ([arXiv:1811.04729](https://arxiv.org/abs/1811.04729)) to guarantee the anonymity of two parties, the sender and the receiver, when they wish to transmit a message through the network.
 
-###Introduction
+#Introduction
 We implemented and simulated the anonymity protocol proposed by A. Unnikrushnan *et al.* <sup>1</sup>. We also simulated a scenario in which the gates are noisy in order to evaluate the effects of the *depolarining channel* on the gates.
 
 To run the protocols, you need SimulaQron and Qiskit. In this project, we used the following versions:
