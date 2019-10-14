@@ -13,7 +13,7 @@ SimulaQron: 3.0.4
 [1] A. Unnikrishnan, I. J. MacFarlane, R. Yi, E. Diamanti, D. Markham, I. Kerenidis: "Anonymity for practical quantum networks". Physical Review Letters, volume 122, 24, 2018
 
 ## Simulation of the anonimity protocol
-First of all, in order to simulate the anonimity network, we need to create a file where we specify the small rotations to apply to qibits in order to reach a certain fidelity. In fact SimulaQron does not allow to simulate complex noisy states.
+First of all, in order to simulate the anonimity network, we need to create a file where we specify the small rotations to apply to qubits in order to reach a certain fidelity. In fact SimulaQron does not allow to simulate complex noisy states.
 So we have to run the following command:
 
 ```
