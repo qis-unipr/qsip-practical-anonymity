@@ -27,15 +27,15 @@ Before simulating the system, we have to do a change to the *comm_module.py* fil
 Now we are ready to simulate the anonymity system running the following command:
 
 ```
-python create_network.py args
+python createNetwork.py args
 ```
 
-where *args* are the options we can set. A list of the available options can be obtained with the following commands: `$ python create_network.py -h` or `$ python create_network.py --help`
+where *args* are the options we can set. A list of the available options can be obtained with the following commands: `$ python createNetwork.py -h` or `$ python createNetwork.py --help`
 
 If we want, for example, simulate a network with 3 agents where they share a ghz state with fidelity=0.9 and one adversary, the command we have to run is:
 
 ```
-python create_network.py -a 1 -n 3 -f 0.9
+python createNetwork.py -a 1 -n 3 -f 0.9
 ```
 
 ## Simulation of the *Verification protocol* with noisy gates
