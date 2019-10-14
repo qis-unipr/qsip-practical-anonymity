@@ -3,7 +3,7 @@ import datetime
 from math import floor, sqrt, log
 import json
 from random import choice, randint
-import os    
+import os
 from time import time
 from simulaqron.network import Network
 import subprocess
@@ -21,7 +21,7 @@ DEBUG = "prova"
 #                  get also the epsilon value
 # @param delta: probability that the protocol doesn't abort.
 # @param S: security parameter.
-# @param ordering: order of the nodes 
+# @param ordering: order of the nodes
 def generateJSONFile(nodes, fidelity, delta, verb):
     with open('conf.json', 'w') as f:
         data = {}
@@ -29,7 +29,7 @@ def generateJSONFile(nodes, fidelity, delta, verb):
         params['n_nodes'] = nodes
         params['fidelity'] = fidelity
         params['delta'] = delta
-        params['epsilon'] = sqrt(1 - fidelity**2) 
+        params['epsilon'] = sqrt(1 - fidelity**2)
         if fidelity != 1:
             params['S'] = round(log( (4*nodes)/((1-sqrt(1-params['epsilon']**2))*delta), 2))
         else:
@@ -37,7 +37,7 @@ def generateJSONFile(nodes, fidelity, delta, verb):
         params['verbose'] = verb
         data['params'] = params
 
-        data['ordering'] = [i for i in range(nodes)]        
+        data['ordering'] = [i for i in range(nodes)]
         json.dump(data, f)
     return data
 
@@ -77,7 +77,7 @@ if __name__ == '__main__':
             exit()
         else:
             assert False, "unknwown option"
-    
+
     if not os.path.exists('conf.json'):
         print('Missing conf.json file. Generating a new one')
         generate = True
@@ -85,7 +85,7 @@ if __name__ == '__main__':
         with open('conf.json', 'r') as f:
             try:
                 conf = json.load(f)
-                if (conf['params']['n_nodes'] != nodes_to_create or 
+                if (conf['params']['n_nodes'] != nodes_to_create or
                         conf['params']['delta'] != delta or
                         conf['params']['fidelity'] != fidelity or
                         conf['params']['verbose'] != verbose):
@@ -94,7 +94,7 @@ if __name__ == '__main__':
                 print('Wrong conf.json format or missing arguments, generating a new one')
                 generate = True
 
-    if generate:    
+    if generate:
         generateJSONFile(nodes_to_create, fidelity, delta, verbose)
         print('conf.json file created!\n')
 
@@ -102,7 +102,7 @@ if __name__ == '__main__':
         conf = json.load(f)
 
     n_nodes = int(conf['params']['n_nodes'])
-    
+
     node_list = ['node'+str(i) for i in range(0, n_nodes)]
     network = Network(nodes=node_list, topology='complete')
     network.start()
@@ -124,7 +124,7 @@ if __name__ == '__main__':
             adversary.append(selected)
             possible_adversary.pop(possible_adversary.index(selected))
 
-    # This json avoids that the verifier is an adversary. 
+    # This json avoids that the verifier is an adversary.
     # It is useful when we want to simulate a specific situations
     if honest_verifier:
         print('adv.json file generated')
@@ -159,6 +159,15 @@ if __name__ == '__main__':
     simulation_parameters += '\n'
     print(simulation_parameters)
 
+    if not os.path.exists('./results'):
+        path = './results'
+        try:
+            os.mkdir(path)
+        except OSError:
+            print ("Creation of the directory %s failed" % path)
+        else:
+            print ("Successfully created the directory %s " % path)
+
     with open("./results/"+DEBUG+"_simulation_"+str(n_nodes)+".csv","a") as output:
         print(simulation_parameters,file=output)
 
@@ -173,7 +182,7 @@ if __name__ == '__main__':
                 to_append = "2 " + str("-".join(map(str, adversary))) + " "
                 params += to_append
             else:
-                params += "0 "    
+                params += "0 "
 
         if i != n_nodes -1:
             params += "&"

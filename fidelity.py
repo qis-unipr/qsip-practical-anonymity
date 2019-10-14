@@ -10,7 +10,6 @@ from qiskit import execute, BasicAer
 
 # useful additional packages
 from qiskit.quantum_info import state_fidelity
-from qiskit.tools.visualization import plot_state_city
 
 # utilities
 from copy import deepcopy
@@ -47,7 +46,7 @@ try:
 
         for i in range(nodes):
             ghzcircuit.h(qr[i])
-        
+
         backend_sim = BasicAer.get_backend('statevector_simulator')
         result = execute(ghzcircuit, backend_sim).result()
 
@@ -59,7 +58,7 @@ try:
         fidelity = 1
         rotation_sequence = []
         vals = [ x for x in range(nodes) ]
-        
+
         target_density_matrix = None
         state_vector = None
 
@@ -69,16 +68,16 @@ try:
 
             ex_q = choice(vals)
             axis = randint(0,1)
-            
+
             # saves the rotations of the qubits in a list
             if axis == 0:
                 ghzcircuit.ry(rotation_step, qr[ex_q])
-                rotation_sequence.append( (ex_q, 0) )    
+                rotation_sequence.append( (ex_q, 0) )
             else:
                 ghzcircuit.rx(rotation_step, qr[ex_q])
                 rotation_sequence.append( (ex_q, 1) )
 
-            # gets the state vector of the modified qubits and calculates the fidelity 
+            # gets the state vector of the modified qubits and calculates the fidelity
             # with respect to the perfect GHZ
             result = execute(ghzcircuit, backend_sim).result()
             state_vector = np.array(result.get_statevector(ghzcircuit))
@@ -86,11 +85,11 @@ try:
             target_density_matrix = np.dot(state_vector_reshaped.transpose(), state_vector_reshaped)
 
             # calculates fidelity
-            current_fidelity = state_fidelity(pure_density_matrix, target_density_matrix) 
+            current_fidelity = state_fidelity(pure_density_matrix, target_density_matrix)
 
         print(iteration, 'Fidelity =', fidelity)
         with open('output'+str(nodes)+'_{0:2.0f}'.format(given_fidelity*100)+'.txt','a') as f:
-            print(str(fidelity)+';'+ str(rotation_sequence), file = f)            
+            print(str(fidelity)+';'+ str(rotation_sequence), file = f)
 
 except QiskitError as ex:
     print('There was an error in the circuit!. Error = {}'.format(ex))
