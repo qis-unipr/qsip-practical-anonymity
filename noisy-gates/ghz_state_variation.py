@@ -8,10 +8,6 @@ import logging
 from qiskit import QuantumCircuit, ClassicalRegister, QuantumRegister, qasm, QiskitError
 from qiskit import execute, BasicAer
 
-# useful additional packages
-from qiskit.quantum_info import state_fidelity
-from qiskit.tools.visualization import plot_state_city
-
 # utilities
 from copy import deepcopy
 from math import pi
@@ -58,7 +54,7 @@ try:
 
     for i in range(nodes):
         ghzstate.h(qr[i])
-    
+
     backend_sim = BasicAer.get_backend('statevector_simulator')
     result = execute(ghzstate, backend_sim).result()
     state_vector = np.array(result.get_statevector(ghzstate))

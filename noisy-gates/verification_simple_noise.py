@@ -1,3 +1,6 @@
+
+# This code works with qiskit 0.12
+
 import sys
 import numpy as np
 import os
@@ -19,7 +22,7 @@ from sys import argv
 from datetime import datetime
 from bitstring import BitArray, Bits
 
-import qiskit.tools.qcvv.tomography as tomo
+import qiskit.ignis.verification.tomography as tomo
 import time
 
 # Qiskit Aer noise module imports
@@ -45,7 +48,7 @@ def xorBitByBit(bits):
     if( len(bits) == 0):
         return -1
 
-    result = bits[0] 
+    result = bits[0]
     for idx in range(1, len(bits)):
         result = result^bits[idx]
     return int(Bits(bin=bin(result)).bin)
@@ -64,8 +67,11 @@ if len(argv) > 3:
     given_fidelity = float(argv[3])
 
 if not os.path.exists('./'+folder_name):
-    print('Error! folder, \'', folder_name, '\'not found.')
-    exit()
+    path = './'+folder_name
+    try:
+        os.mkdir(path)
+    except OSError:
+        print ("Creation of the directory %s failed" % path)
 start_time = time.time()
 
 try:
@@ -74,7 +80,7 @@ try:
     # the idenity gate is used in order to add the depolarizing channel noise to the state
     qr = QuantumRegister(nodes)
     cr = ClassicalRegister(nodes)
-    circuit = QuantumCircuit(qr, cr, name='ghz_circuit')  
+    circuit = QuantumCircuit(qr, cr, name='ghz_circuit')
 
     for i in range(nodes-1):
         circuit.h(qr[i])
@@ -91,7 +97,7 @@ try:
     state = result.get_statevector(circuit)
     #print('ghz statevector\n',state)
 
-    # in order to calculate the probability in the depolarizing channel, we have to 
+    # in order to calculate the probability in the depolarizing channel, we have to
     # calculate first the noisy rho density matrix
     psi = np.array(state)
     psi_density_matrix = psi.reshape((1,-1))
@@ -111,7 +117,7 @@ try:
         rho_density_matrix = actual_p*(np.identity(len(state))/(2**nodes)) + (1 - actual_p)*psi_density_matrix
         rho_density_matrix = rho_density_matrix/np.trace(rho_density_matrix)
         actual_fidelity = state_fidelity(rho_density_matrix, psi_density_matrix)
-        
+
     #rho_density_matrix = (actual_p*np.identity(len(state)))/nodes + (1 - actual_p)*psi_density_matrix
     #fidelity = state_fidelity(rho_density_matrix, psi_density_matrix)
     print('depolarizing probability:', p)
@@ -123,16 +129,16 @@ try:
     # Once we have the probability that gives us a specific fidelity in the depolarizing
     # channel, we simulate the circuit.
     # Creates and adds depolarizing error to specific qubit gates
-    noise_model = NoiseModel() 
+    noise_model = NoiseModel()
     error = depolarizing_error(p**(1/nodes), 1)
     noise_model.add_all_qubit_quantum_error(error, 'id')
     print(noise_model)
 
     ###################################################################################
-    # The ghzstate circuit is used in order to verify the effect of the noise on the 
+    # The ghzstate circuit is used in order to verify the effect of the noise on the
     # ghz state. This part can be commented.
-    '''ghzstate = QuantumCircuit(qr, cr, name='ghz') 
-    
+    '''ghzstate = QuantumCircuit(qr, cr, name='ghz')
+
     for i in range(nodes):
         ghzstate.iden(qr[i])
 
@@ -172,7 +178,7 @@ try:
     for iteration in range(ITERATIONS):
         qr = QuantumRegister(nodes)
         cr = ClassicalRegister(nodes)
-        circuit = QuantumCircuit(qr, cr, name='ghz_circuit')  
+        circuit = QuantumCircuit(qr, cr, name='ghz_circuit')
 
         for i in range(nodes-1):
             circuit.h(qr[i])
@@ -188,19 +194,19 @@ try:
         random_angles = [-1]
         if even:
             DEBUG += 'even'
-            while (sum(random_angles) / 128) % 2 != 0: 
+            while (sum(random_angles) / 128) % 2 != 0:
                 random_angles = list([randint(0, 127) for _ in range(nodes-1)])
                 if iteration % 128 == 1 or iteration % 128 == 2:
                     random_angles.append(3)
                 else:
                     random_angles.append(iteration%128)
-                
+
         else:
             DEBUG += 'odd'
             while (sum(random_angles) / 128) % 2 != 1:
                 random_angles = list([randint(0, 127) for _ in range(nodes-1)])
                 random_angles.append(iteration%128)
-                
+
         DEBUG += '_I_gates_b_'+str(nodes)
 
         #print('sum random angles', sum(random_angles))
@@ -213,12 +219,12 @@ try:
 
         circuit.measure(qr, cr)
 
-        result = execute(circuit, 
-                        backend = Aer.get_backend('qasm_simulator'), 
+        result = execute(circuit,
+                        backend = Aer.get_backend('qasm_simulator'),
                         shots = 1,
                         basis_gates = noise_model.basis_gates,
                         noise_model = noise_model).result()
-        
+
         counts_device = result.get_counts(circuit)
 
         with open(folder_name+'/'+DEBUG+'.txt','a') as f:
@@ -229,7 +235,7 @@ try:
                 if xorBitByBit([int(elem) for elem in key]) == int(sum(random_angles_steps)/128)%2:
                     string += ',ok'
             print('{0:4.0f}'.format(fidelity*1000)+','+str(ITERATIONS)+'/'+str(iteration+1)+','+string, file = f)
-    
+
     with open(folder_name+'/'+DEBUG+'.txt','a') as f:
         print("--- %s seconds ---" % (time.time() - start_time), file = f)
 
