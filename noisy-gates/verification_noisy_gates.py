@@ -24,8 +24,6 @@ from datetime import datetime
 from bitstring import BitArray, Bits
 import time
 
-import qiskit.ignis.verification.tomography as tomo
-
 # Qiskit Aer noise module imports
 from qiskit.providers.aer.noise import NoiseModel
 from qiskit.providers.aer.noise.errors import pauli_error

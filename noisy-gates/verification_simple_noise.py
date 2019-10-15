@@ -22,7 +22,6 @@ from sys import argv
 from datetime import datetime
 from bitstring import BitArray, Bits
 
-import qiskit.ignis.verification.tomography as tomo
 import time
 
 # Qiskit Aer noise module imports
