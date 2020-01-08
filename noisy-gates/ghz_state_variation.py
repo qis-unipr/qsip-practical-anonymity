@@ -25,21 +25,20 @@ nodes = 3
 
 
 def apply_rotations(quantum_register, classical_register, circuit, angles, qubit_to_rotate):
-    #### operazioni del verification protocol
+    # operazioni del verification protocol
     circuit.rz(-angles[qubit_to_rotate], quantum_register[qubit_to_rotate])
     circuit.ry(-pi/2, quantum_register[qubit_to_rotate])
-    ####
 
     # state vector prima della misura
     result = execute(circuit, backend_sim).result()
     state_vector = np.array(result.get_statevector(circuit))
-    print('qubit to rotate:', qubit_to_rotate,'state after rotation:\n', state_vector.reshape(-1,1), '\n')
+    print('qubit to rotate:', qubit_to_rotate, 'state after rotation:\n', state_vector.reshape(-1, 1), '\n')
 
     # state vector post misura
     circuit.measure(quantum_register[qubit_to_rotate], classical_register[qubit_to_rotate])
     result = execute(circuit, backend_sim).result()
     state_vector = np.array(result.get_statevector(circuit))
-    print('qubit to rotate:', qubit_to_rotate,'state after measurement:\n',state_vector.reshape(-1,1), '\n')
+    print('qubit to rotate:', qubit_to_rotate, 'state after measurement:\n', state_vector.reshape(-1, 1), '\n')
 
 
 try:
@@ -63,7 +62,7 @@ try:
 
     random_angles = [-1]
     while sum(random_angles) % 128 != 0:
-        random_angles = list([ randint(0, 127) for _ in range(nodes) ])
+        random_angles = list([randint(0, 127) for _ in range(nodes)])
 
     print('sum random angles', sum(random_angles))
     random_angles[:] = np.array(random_angles) * rotation_step

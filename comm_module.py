@@ -2,7 +2,7 @@ import json
 import socket
 import threading 
 
-CONFIG_PATH = "/usr/local/lib/python3.7/site-packages/simulaqron/config/network.json"
+CONFIG_PATH = "C:/Users/david/AppData/Local/Programs/Python/Python36/Lib/site-packages/simulaqron/config/network.json"
 BROADCAST_PORT = 12345
 LISTENING_PORT = 8000
 
@@ -23,8 +23,8 @@ def createBroadcastServer():
 
 
 # Accesses to SimulaQron network options and retrieves the port of the node
-def getConfigPort(id = None):
-    if id != None:
+def getConfigPort(id=None):
+    if id is not None:
         with open(CONFIG_PATH, 'r') as config_file:
             data = json.load(config_file)
         return data['default']['nodes'][id]['app_socket'][1]
@@ -41,12 +41,12 @@ class CommunicationManager():
         self._broadcast_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self._broadcast_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self._broadcast_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
-        self._broadcast_sock.bind( ('', BROADCAST_PORT) )
+        self._broadcast_sock.bind(('', BROADCAST_PORT))
 
         self._listening_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self._listening_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self._listening_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
-        self._listening_sock.bind( ('localhost', int(getConfigPort(self._id)+1000)) )
+        self._listening_sock.bind(('localhost', int(getConfigPort(self._id)+1000)))
 
     def sendBroadcastMessage(self, msg):
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -61,15 +61,15 @@ class CommunicationManager():
             data, addr = self._broadcast_sock.recv(2000).decode('utf-8').split(',')
 
             if addr != self._id:
-                self._messages.append((data,addr))
+                self._messages.append((data, addr))
 
     def sendMessageToNode(self, msg, id):
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        sock.sendto(bytes(str(msg), 'utf-8'), ('localhost', getConfigPort(id)+1000 ))
+        sock.sendto(bytes(str(msg), 'utf-8'), ('localhost', getConfigPort(id)+1000))
 
     def sendMessageToNodeWithId(self, msg, id):
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        sock.sendto(bytes(str(msg)+','+str(self._id)[-1], 'utf-8'), ('localhost', getConfigPort(id)+1000 ))
+        sock.sendto(bytes(str(msg)+','+str(self._id)[-1], 'utf-8'), ('localhost', getConfigPort(id)+1000))
         
     def recvMessage(self):
         msg, sender = self._listening_sock.recvfrom(2000)

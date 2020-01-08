@@ -38,7 +38,7 @@ try:
         qr = QuantumRegister(nodes)
         cr = ClassicalRegister(nodes)
 
-        #Generates the GHZ Circuit
+        # Generates the GHZ Circuit
         ghzcircuit = QuantumCircuit(qr, cr, name='ghzstate')
         for i in range(nodes-1):
             ghzcircuit.h(qr[i])
@@ -72,10 +72,10 @@ try:
             # saves the rotations of the qubits in a list
             if axis == 0:
                 ghzcircuit.ry(rotation_step, qr[ex_q])
-                rotation_sequence.append( (ex_q, 0) )
+                rotation_sequence.append((ex_q, 0))
             else:
                 ghzcircuit.rx(rotation_step, qr[ex_q])
-                rotation_sequence.append( (ex_q, 1) )
+                rotation_sequence.append((ex_q, 1))
 
             # gets the state vector of the modified qubits and calculates the fidelity
             # with respect to the perfect GHZ
@@ -87,9 +87,9 @@ try:
             # calculates fidelity
             current_fidelity = state_fidelity(pure_density_matrix, target_density_matrix)
 
-        print(iteration, 'Fidelity =', fidelity)
-        with open('output'+str(nodes)+'_{0:2.0f}'.format(given_fidelity*100)+'.txt','a') as f:
-            print(str(fidelity)+';'+ str(rotation_sequence), file = f)
+        # print(iteration, 'Fidelity =', fidelity)
+        with open('output'+str(nodes) + '_{0:2.0f}'.format(given_fidelity*100) + '.txt', 'a') as f:
+            print(str(fidelity)+';' + str(rotation_sequence), file=f)
 
 except QiskitError as ex:
     print('There was an error in the circuit!. Error = {}'.format(ex))

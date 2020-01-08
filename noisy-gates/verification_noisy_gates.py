@@ -35,7 +35,7 @@ logging.getLogger('qiskit.mapper._mapping').setLevel(logging.DEBUG)
 # constants
 even = None
 folder_name = 'results'
-given_fidelity = 1
+given_fidelity = 0.9
 nodes = 3
 rotation_step = (2*pi)/256
 ITERATIONS = 128*5

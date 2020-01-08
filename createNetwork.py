@@ -29,9 +29,9 @@ def generateJSONFile(nodes, fidelity, delta, verb):
         params['n_nodes'] = nodes
         params['fidelity'] = fidelity
         params['delta'] = delta
-        params['epsilon'] = sqrt(1 - fidelity**2)
+        params['epsilon'] = sqrt(1 - fidelity ** 2)
         if fidelity != 1:
-            params['S'] = round(log( (4*nodes)/((1-sqrt(1-params['epsilon']**2))*delta), 2))
+            params['S'] = round(log((4 * nodes) / ((1 - sqrt(1 - params['epsilon'] ** 2)) * delta), 2))
         else:
             params['S'] = 10
         params['verbose'] = verb
@@ -40,6 +40,7 @@ def generateJSONFile(nodes, fidelity, delta, verb):
         data['ordering'] = [i for i in range(nodes)]
         json.dump(data, f)
     return data
+
 
 if __name__ == '__main__':
     delta = 0.01
@@ -50,7 +51,9 @@ if __name__ == '__main__':
     nodes_to_create = 3
     verbose = 2
 
-    opts, args = getopt.getopt(sys.argv[1:], 'n:f:d:a:h:v',['nodes=','fidelity=','delta=','adv=','help=','honest-verifier=','verbose='])
+    opts, args = getopt.getopt(sys.argv[1:], 'n:f:d:a:h:v',
+                               ['nodes=', 'fidelity=', 'delta=', 'adv=', 'help=', 'honest-verifier=',
+                                'verbose='])
     for opt, arg in opts:
         if opt in ('-n', '--nodes'):
             nodes_to_create = int(arg)
@@ -62,18 +65,19 @@ if __name__ == '__main__':
             verbose = int(arg)
         elif opt in ('-a', '--adv'):
             n_adversaries = int(arg)
-        elif opt in ('--honest-verifier'): #the verifier is always honest
-            assert arg in ['0','1'], "wrong honest verifier parameter"
+        elif opt in '--honest-verifier':
+            # the verifier is always honest
+            assert arg in ['0', '1'], "wrong honest verifier parameter"
             honest_verifier = bool(int(arg))
         elif opt in ('-h', '--help'):
-            print('Supported commands:'+
-                    '\n {:3s}  {:12s} -> sets the number of adversaries'.format('-a','--adv')+
-                    '\n {:3s}  {:12s} -> sets the delta parameter'.format('-d','--delta')+
-                    '\n {:3s}  {:12s} -> enable a dishonest verifier to be chosen (input 0 or 1)'.format('','--honest-verifier')+
-                    '\n {:3s}  {:12s} -> changes fidelity parameter'.format('-f','--fidelity')+
-                    '\n {:3s}  {:12s} -> print commands'.format('-h','--help')+
-                    '\n {:3s}  {:12s} -> sets nodes number'.format('-n','--nodes')+
-                    '\n {:3s}  {:12s} -> toggle verbose mode (1 enabled, 0 disabled)'.format('-v','--verbose'))
+            print('Supported commands:' +
+                  '\n {:3s}  {:12s} -> sets the number of adversaries'.format('-a', '--adv') +
+                  '\n {:3s}  {:12s} -> sets the delta parameter'.format('-d', '--delta') +
+                  '\n {:3s}  {:12s} -> enable a dishonest verifier to be chosen (input 0 or 1)'.format('', '--honest-verifier') +
+                  '\n {:3s}  {:12s} -> changes fidelity parameter'.format('-f', '--fidelity') +
+                  '\n {:3s}  {:12s} -> print commands'.format('-h', '--help') +
+                  '\n {:3s}  {:12s} -> sets nodes number'.format('-n', '--nodes') +
+                  '\n {:3s}  {:12s} -> toggle verbose mode (1 enabled, 0 disabled)'.format('-v', '--verbose'))
             exit()
         else:
             assert False, "unknwown option"
@@ -103,12 +107,12 @@ if __name__ == '__main__':
 
     n_nodes = int(conf['params']['n_nodes'])
 
-    node_list = ['node'+str(i) for i in range(0, n_nodes)]
+    node_list = ['node' + str(i) for i in range(0, n_nodes)]
     network = Network(nodes=node_list, topology='complete')
     network.start()
 
     # the sender won't be the source of ghz states
-    sender = randint(0, n_nodes-2)
+    sender = randint(0, n_nodes - 2)
     adversary = []
     if n_adversaries > 0:
         possible_adversary = [i for i in range(0, n_nodes)]
@@ -128,7 +132,7 @@ if __name__ == '__main__':
     # It is useful when we want to simulate a specific situations
     if honest_verifier:
         print('adv.json file generated')
-        with open('adv.json',"w") as adv_json:
+        with open('adv.json', "w") as adv_json:
             adv = {}
             adv['adversary'] = adversary
             json.dump(adv, adv_json)
@@ -144,18 +148,18 @@ if __name__ == '__main__':
 
     # Pretty-print simulation parameters on file
     timestamp = str(datetime.datetime.fromtimestamp(time()).strftime('%Y-%m-%d %H:%M:%S'))
-    simulation_parameters = ('simulation parameters:'+
-            '\n\ttimestamp: '+timestamp+
-            '\n\tnodes: '+str(n_nodes)+
-            '\n\tsender: '+str(sender)+
-            '\n\tadversaries: '+ str(adversary)+
-            '\n\tdelta: {0:.2f}'.format(delta)+
-            '\n\tGHZ states fidelity and epsilon: {0:.2f} {1:.2f}'.format(fidelity, epsilon)+
-            '\n\tsecurity parameter (S): {}'.format(S)+
-            '\n\tordering: '+str(order))
+    simulation_parameters = ('simulation parameters:' +
+                             '\n\ttimestamp: ' + timestamp +
+                             '\n\tnodes: ' + str(n_nodes) +
+                             '\n\tsender: ' + str(sender) +
+                             '\n\tadversaries: ' + str(adversary) +
+                             '\n\tdelta: {0:.2f}'.format(delta) +
+                             '\n\tGHZ states fidelity and epsilon: {0:.2f} {1:.2f}'.format(fidelity, epsilon) +
+                             '\n\tsecurity parameter (S): {}'.format(S) +
+                             '\n\tordering: ' + str(order))
 
     if honest_verifier:
-        simulation_parameters += ('\n\thonest verifier: '+str(honest_verifier))
+        simulation_parameters += ('\n\thonest verifier: ' + str(honest_verifier))
     simulation_parameters += '\n'
     print(simulation_parameters)
 
@@ -164,18 +168,18 @@ if __name__ == '__main__':
         try:
             os.mkdir(path)
         except OSError:
-            print ("Creation of the directory %s failed" % path)
+            print("Creation of the directory %s failed" % path)
         else:
-            print ("Successfully created the directory %s " % path)
+            print("Successfully created the directory %s " % path)
 
-    with open("./results/"+DEBUG+"_simulation_"+str(n_nodes)+".csv","a") as output:
-        print(simulation_parameters,file=output)
+    with open("./results/" + DEBUG + "_simulation_" + str(n_nodes) + ".csv", "a") as output:
+        print(simulation_parameters, file=output)
 
     # spawns processes for each agent
     for i in range(0, n_nodes):
-        params = "python3 node.py "+str(i)+" "
+        params = "python node.py " + str(i) + " "
 
-        if (i == sender):
+        if i == sender:
             params += "1 "
         else:
             if len(adversary) > 0 and i in adversary:
@@ -184,9 +188,9 @@ if __name__ == '__main__':
             else:
                 params += "0 "
 
-        if i != n_nodes -1:
+        if i != n_nodes - 1:
             params += "&"
-        subprocess.call(params, shell = True)
+        subprocess.call(params, shell=True)
 
     # runs the broadcast server in background and creates a new communication
     # layer (classical) for each node

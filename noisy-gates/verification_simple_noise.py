@@ -44,12 +44,12 @@ ITERATIONS = 128*5
 timestamp = datetime.now().strftime('%Y%m%d%H%M')
 
 def xorBitByBit(bits):
-    if( len(bits) == 0):
+    if len(bits) == 0:
         return -1
 
     result = bits[0]
     for idx in range(1, len(bits)):
-        result = result^bits[idx]
+        result = result ^ bits[idx]
     return int(Bits(bin=bin(result)).bin)
 
 if len(argv) > 1:
@@ -70,7 +70,7 @@ if not os.path.exists('./'+folder_name):
     try:
         os.mkdir(path)
     except OSError:
-        print ("Creation of the directory %s failed" % path)
+        print("Creation of the directory %s failed" % path)
 start_time = time.time()
 
 try:
@@ -92,16 +92,16 @@ try:
         circuit.iden(qr[i])
 
     statevector_simulator = Aer.get_backend('statevector_simulator')
-    result = execute(circuit, statevector_simulator, shots = shots).result()
+    result = execute(circuit, statevector_simulator, shots=shots).result()
     state = result.get_statevector(circuit)
-    #print('ghz statevector\n',state)
+    # print('ghz statevector\n',state)
 
     # in order to calculate the probability in the depolarizing channel, we have to
     # calculate first the noisy rho density matrix
     psi = np.array(state)
-    psi_density_matrix = psi.reshape((1,-1))
+    psi_density_matrix = psi.reshape((1, -1))
     psi_density_matrix = np.dot(psi_density_matrix.transpose(), psi_density_matrix)
-    #print('psi density matrix \n', psi_density_matrix)
+    # print('psi density matrix \n', psi_density_matrix)
 
     actual_p = 0.00
     rho_density_matrix = psi_density_matrix.copy()
@@ -117,14 +117,14 @@ try:
         rho_density_matrix = rho_density_matrix/np.trace(rho_density_matrix)
         actual_fidelity = state_fidelity(rho_density_matrix, psi_density_matrix)
 
-    #rho_density_matrix = (actual_p*np.identity(len(state)))/nodes + (1 - actual_p)*psi_density_matrix
-    #fidelity = state_fidelity(rho_density_matrix, psi_density_matrix)
+    # rho_density_matrix = (actual_p*np.identity(len(state)))/nodes + (1 - actual_p)*psi_density_matrix
+    # fidelity = state_fidelity(rho_density_matrix, psi_density_matrix)
     print('depolarizing probability:', p)
     print('resulting fidelity:', fidelity)
-    #print('resulting rho density matrix:\n', resulting_density_matrix)
-    #print('tizio:', np.trace(resulting_density_matrix), p**(1/nodes))
+    # print('resulting rho density matrix:\n', resulting_density_matrix)
+    # print('tizio:', np.trace(resulting_density_matrix), p**(1/nodes))
 
-    #################### code that models the noise ####################################
+    # code that models the noise
     # Once we have the probability that gives us a specific fidelity in the depolarizing
     # channel, we simulate the circuit.
     # Creates and adds depolarizing error to specific qubit gates
@@ -133,7 +133,6 @@ try:
     noise_model.add_all_qubit_quantum_error(error, 'id')
     print(noise_model)
 
-    ###################################################################################
     # The ghzstate circuit is used in order to verify the effect of the noise on the
     # ghz state. This part can be commented.
     '''ghzstate = QuantumCircuit(qr, cr, name='ghz')
@@ -165,8 +164,6 @@ try:
     print('noisy ghz', counts_noise_model)
     # Plot noisy output
     plot_histogram(counts_noise_model).savefig('noisy.png')'''
-    ###################################################################################
-
 
     print('Running verification protocol...')
     # creates a dictionary that counts the results
@@ -189,7 +186,7 @@ try:
         for i in range(nodes):
             circuit.iden(qr[i])
 
-        DEBUG = timestamp+'_'
+        DEBUG = timestamp + '_'
         random_angles = [-1]
         if even:
             DEBUG += 'even'
@@ -208,7 +205,7 @@ try:
 
         DEBUG += '_I_gates_b_'+str(nodes)
 
-        #print('sum random angles', sum(random_angles))
+        # print('sum random angles', sum(random_angles))
         random_angles_steps = random_angles[:]
         random_angles[:] = np.array(random_angles) * rotation_step
 
@@ -219,10 +216,10 @@ try:
         circuit.measure(qr, cr)
 
         result = execute(circuit,
-                        backend = Aer.get_backend('qasm_simulator'),
-                        shots = 1,
-                        basis_gates = noise_model.basis_gates,
-                        noise_model = noise_model).result()
+                        backend=Aer.get_backend('qasm_simulator'),
+                        shots=1,
+                        basis_gates=noise_model.basis_gates,
+                        noise_model=noise_model).result()
 
         counts_device = result.get_counts(circuit)
 
@@ -233,12 +230,12 @@ try:
                 string += (key+','+str(sum(random_angles_steps)))
                 if xorBitByBit([int(elem) for elem in key]) == int(sum(random_angles_steps)/128)%2:
                     string += ',ok'
-            print('{0:4.0f}'.format(fidelity*1000)+','+str(ITERATIONS)+'/'+str(iteration+1)+','+string, file = f)
+            print('{0:4.0f}'.format(fidelity*1000)+','+str(ITERATIONS)+'/'+str(iteration+1)+','+string, file=f)
 
-    with open(folder_name+'/'+DEBUG+'.txt','a') as f:
+    with open(folder_name + '/' + DEBUG + '.txt', 'a') as f:
         print("--- %s seconds ---" % (time.time() - start_time), file = f)
 
-    plot_histogram(angles_dict, title='Verification protocol results').savefig(folder_name+'/'+DEBUG+'.png')
+    plot_histogram(angles_dict, title='Verification protocol results').savefig(folder_name + '/' + DEBUG + '.png')
 
 except QiskitError as ex:
     print('There was an error in the circuit!. Error = {}'.format(ex))
