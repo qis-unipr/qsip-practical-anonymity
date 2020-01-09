@@ -1,8 +1,10 @@
 import json
+import platform
 import socket
-import threading 
 
-CONFIG_PATH = "C:/Users/david/AppData/Local/Programs/Python/Python36/Lib/site-packages/simulaqron/config/network.json"
+import simulaqron
+import os
+CONFIG_PATH = os.path.dirname(simulaqron.__file__) + "/config/network.json"
 BROADCAST_PORT = 12345
 LISTENING_PORT = 8000
 
@@ -14,7 +16,7 @@ def createBroadcastServer():
     
     # creates the listening socket that receives the message to broadcast
     listening_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    listening_sock.bind( ('localhost', LISTENING_PORT) )
+    listening_sock.bind(('localhost', LISTENING_PORT))
 
     while True:
         msg_to_broadcast = listening_sock.recv(2000).decode('utf-8')
@@ -40,12 +42,14 @@ class CommunicationManager():
 
         self._broadcast_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self._broadcast_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        self._broadcast_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
+        if platform.system() != 'Windows':
+            self._broadcast_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
         self._broadcast_sock.bind(('', BROADCAST_PORT))
 
         self._listening_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self._listening_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        self._listening_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
+        if platform.system() != 'Windows':
+            self._broadcast_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
         self._listening_sock.bind(('localhost', int(getConfigPort(self._id)+1000)))
 
     def sendBroadcastMessage(self, msg):
