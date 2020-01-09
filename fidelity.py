@@ -57,7 +57,7 @@ try:
         current_fidelity = 1
         fidelity = 1
         rotation_sequence = []
-        vals = [ x for x in range(nodes) ]
+        vals = [x for x in range(nodes)]
 
         target_density_matrix = None
         state_vector = None
@@ -67,7 +67,7 @@ try:
             fidelity = current_fidelity
 
             ex_q = choice(vals)
-            axis = randint(0,1)
+            axis = randint(0, 1)
 
             # saves the rotations of the qubits in a list
             if axis == 0:
