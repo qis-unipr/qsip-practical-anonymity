@@ -108,7 +108,7 @@ if __name__ == '__main__':
     n_nodes = int(conf['params']['n_nodes'])
 
     node_list = ['node' + str(i) for i in range(0, n_nodes)]
-    network = Network(nodes=node_list, topology='complete')
+    network = Network(nodes=node_list, topology='complete', force=True)
     network.start()
 
     # the sender won't be the source of ghz states
@@ -176,8 +176,12 @@ if __name__ == '__main__':
         print(simulation_parameters, file=output)
 
     # spawns processes for each agent
+    alias = 'python3'
+    ver = subprocess.call(alias + ' --version', shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    if ver != 0:
+        alias = 'python'
     for i in range(0, n_nodes):
-        params = "python node.py " + str(i) + " "
+        params = alias + ' node.py ' + str(i) + ' '
 
         if i == sender:
             params += "1 "
@@ -190,7 +194,8 @@ if __name__ == '__main__':
 
         if i != n_nodes - 1:
             params += "&"
-        subprocess.call(params, shell=True)
+        print(params)
+        subprocess.Popen(params, shell=True)
 
     # runs the broadcast server in background and creates a new communication
     # layer (classical) for each node
